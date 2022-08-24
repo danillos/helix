@@ -21,9 +21,21 @@
 ; Functions
 (method) @function.around
 
+(method (identifier) !parameters
+  (_)+  @function.inside)
+
 (method (identifier) (method_parameters)
   (_)+ @function.inside)
-  
+
+(singleton_method) @function.around
+
+(singleton_method (self) (identifier) !parameters
+  (_)+  @function.inside)
+
+(singleton_method (self) (identifier) (method_parameters)
+  (_)+ @function.inside)
+
+; Blocks  
 (do_block !parameters
   (_)+ @function.inside)
   
@@ -36,8 +48,6 @@
 (block !parameters
   (_)+ @function.inside)
       
-(method (identifier) !parameters
-  (_)+  @function.inside)
 
 ; Parameters      
 (method_parameters
