@@ -2165,31 +2165,6 @@ fn reset_diff_change(
     Ok(())
 }
 
-fn cmds(cx: &mut compositor::Context, args: &[Cow<str>], event: PromptEvent) -> anyhow::Result<()> {
-    if event != PromptEvent::Validate {
-        return Ok(());
-    }
-
-    let mut start;
-    let mut end = 0;
-    loop {
-        start = if end == 0 { 0 } else { end + 1 };
-        end = start + 1;
-        while end < args.len() {
-            if args[end] == "&&" {
-                break;
-            }
-            end += 1;
-        }
-
-        if start >= end || start >= args.len() {
-            break;
-        }
-        process_cmd(cx, &args[start..end].join(" "), event)?;
-    }
-    Ok(())
-}
-
 pub fn process_cmd(
     cx: &mut compositor::Context,
     input: &str,
@@ -2778,13 +2753,6 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
             doc: "Reset the diff change at the cursor position.",
             fun: reset_diff_change,
             signature: CommandSignature::none(),
-        },
-        TypableCommand {
-            name: "commands",
-            aliases: &["cmds"],
-            doc: "Run commands together, use && to sepearte them",
-            fun: cmds,
-            signature: CommandSignature::all(completers::filename)
         },
     ];
 
