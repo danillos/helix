@@ -2862,55 +2862,59 @@ fn argument_number_of(shellwords: &Shellwords) -> usize {
 }
 
 fn expand_args<'a>(editor: &mut Editor, args: &'a str) -> Cow<'a, str> {
-    let reg = Regex::new(r"%(\w+)\s*\{(.*)").unwrap();
-    reg.replace(args, |caps: &regex::Captures| {
-        let remaining = &caps[2];
-        let end = find_first_open_right_braces(remaining);
-        let exp = expand_args(editor, &remaining[..end]);
-        let doc = doc!(editor);
-        let rep = match &caps[1] {
-            "val" => match exp.trim() {
-                "filename" => doc.path().and_then(|p| p.to_str()).unwrap_or("").to_owned(),
-                "dirname" => doc
-                    .path()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("")
-                    .to_owned(),
-                _ => "".into(),
-            },
-            "sh" => {
-                let shell = &editor.config().shell;
-                if let Ok((output, _)) = shell_impl(shell, &exp, None) {
-                    output.trim().into()
-                } else {
-                    "".into()
-                }
-            }
-            _ => "".into(),
-        };
-        let next = expand_args(editor, remaining.get(end + 1..).unwrap_or(""));
-        format!("{rep} {next}")
-    })
-}
+    let (view, doc) = current!(editor);
+    let text = doc.text().slice(..);
 
-fn find_first_open_right_braces(str: &str) -> usize {
-    let mut left_count = 1;
-    for (i, &b) in str.as_bytes().iter().enumerate() {
-        match char::from_u32(b as u32) {
-            Some('}') => {
-                left_count -= 1;
-                if left_count == 0 {
-                    return i;
-                }
-            }
-            Some('{') => {
-                left_count += 1;
-            }
-            _ => {}
+    let re_val = Regex::new(r"%val\s*?\{+(?P<var_name>\w+)\}").unwrap();
+    let re_sh = Regex::new(r"%sh+\s*?\{+(.*+)\}").unwrap();
+
+    let cmd = re_val.replace_all(args, |caps: &regex::Captures| {
+        let root_dirname = PathBuf::from(".")
+            .canonicalize()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+            .to_owned();
+
+        let file_name = doc.path().and_then(|p| p.to_str()).unwrap_or("").to_owned();
+
+        let mut pp: String = root_dirname.clone();
+        pp.push('/');
+        let relative_file_name = file_name.replace(&pp, "");
+
+        let line_number = doc.selection(view.id).primary().cursor_line(text) + 1;
+
+        match caps[1].trim() {
+            // ex. /Users/{user}/my_project/src/file.rs
+            "filename" => file_name,
+            // ex. /Users/{user}/my_project
+            "root_dirname" => root_dirname,
+            // ex. src/file.rs
+            "relative_filename" => relative_file_name,
+            // ex. 1
+            "line_number" => line_number.to_string().to_owned(),
+            // ex. /Users/{user}/my_project/src
+            "dirname" => doc
+                .path()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.to_str())
+                .unwrap_or("")
+                .to_owned(),
+            _ => caps[0].to_owned(),
         }
-    }
-    str.len()
+    });
+
+    let cmdd = re_sh.replace_all(&cmd, |caps: &regex::Captures| -> String {
+        let shell_command = caps[1].trim();
+        let shell = &editor.config().shell;
+        if let Ok((output, _)) = shell_impl(shell, shell_command, None) {
+            output.trim().into()
+        } else {
+            "".into()
+        }
+    });
+
+    Cow::Owned(cmdd.to_string())
 }
 
 #[test]
