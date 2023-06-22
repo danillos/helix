@@ -158,6 +158,7 @@
 <li><a href="#fedorarhel">Fedora/RHEL</a></li>
 <li><a href="#arch-linux-community">Arch Linux community</a></li>
 <li><a href="#nixos">NixOS</a></li>
+<li><a href="#flatpak">Flatpak</a></li>
 <li><a href="#appimage">AppImage</a></li>
 </ul>
 </li>
@@ -176,7 +177,13 @@
 </li>
 <li><a href="#building-from-source">Building from source</a>
 <ul>
-<li><a href="#configuring-helixs-runtime-files">Configuring Helix's runtime files</a></li>
+<li><a href="#configuring-helixs-runtime-files">Configuring Helix's runtime files</a>
+<ul>
+<li><a href="#linux-and-macos">Linux and macOS</a></li>
+<li><a href="#windows">Windows</a></li>
+<li><a href="#multiple-runtime-directories">Multiple runtime directories</a></li>
+</ul>
+</li>
 <li><a href="#validating-the-installation">Validating the installation</a></li>
 <li><a href="#configure-the-desktop-shortcut">Configure the desktop shortcut</a></li>
 </ul>
@@ -223,7 +230,9 @@ sudo dnf install helix
 <p>Additionally, a <a href="https://aur.archlinux.org/packages/helix-git/">helix-git</a> package is available
 in the AUR, which builds the master branch.</p>
 <h3 id="nixos"><a class="header" href="#nixos">NixOS</a></h3>
-<p>Helix is available as a <a href="https://nixos.wiki/wiki/Flakes">flake</a> in the project
+<p>Helix is available in <a href="https://github.com/nixos/nixpkgs">nixpkgs</a> through the <code>helix</code> attribute,
+the unstable channel usually carries the latest release.</p>
+<p>Helix is also available as a <a href="https://nixos.wiki/wiki/Flakes">flake</a> in the project
 root. Use <code>nix develop</code> to spin up a reproducible development shell. Outputs are
 cached for each push to master using <a href="https://www.cachix.org/">Cachix</a>. The
 flake is configured to automatically make use of this cache assuming the user
@@ -231,6 +240,11 @@ accepts the new settings on first use.</p>
 <p>If you are using a version of Nix without flakes enabled,
 <a href="https://docs.cachix.org/installation">install Cachix CLI</a> and use
 <code>cachix use helix</code> to configure Nix to use cached outputs when possible.</p>
+<h3 id="flatpak"><a class="header" href="#flatpak">Flatpak</a></h3>
+<p>Helix is available on <a href="https://flathub.org/en-GB/apps/com.helix_editor.Helix">Flathub</a>:</p>
+<pre><code class="language-sh">flatpak install flathub com.helix_editor.Helix
+flatpak run com.helix_editor.Helix
+</code></pre>
 <h3 id="appimage"><a class="header" href="#appimage">AppImage</a></h3>
 <p>Install Helix using the Linux <a href="https://appimage.org/">AppImage</a> format.
 Download the official Helix AppImage from the <a href="https://github.com/helix-editor/helix/releases/latest">latest releases</a> page.</p>
@@ -261,10 +275,13 @@ You can get <a href="https://www.microsoft.com/p/app-installer/9nblggh4nns1#acti
 </code></pre>
 <h2 id="building-from-source"><a class="header" href="#building-from-source">Building from source</a></h2>
 <p>Requirements:</p>
+<p>Clone the Helix GitHub repository into a directory of your choice. The
+examples in this documentation assume installation into either <code>~/src/</code> on
+Linux and macOS, or <code>%userprofile%\src\</code> on Windows.</p>
 <ul>
 <li>The <a href="https://www.rust-lang.org/tools/install">Rust toolchain</a></li>
 <li>The <a href="https://git-scm.com/">Git version control system</a></li>
-<li>A c++14 compatible compiler to build the tree-sitter grammars, for example GCC or Clang</li>
+<li>A C++14 compatible compiler to build the tree-sitter grammars, for example GCC or Clang</li>
 </ul>
 <p>If you are using the <code>musl-libc</code> standard library instead of <code>glibc</code> the following environment variable must be set during the build to ensure tree-sitter grammars can be loaded correctly:</p>
 <pre><code class="language-sh">RUSTFLAGS=&quot;-C target-feature=-crt-static&quot;
@@ -291,12 +308,15 @@ the <code>runtime</code> directory within the user's helix config directory (mor
 </blockquote>
 <h3 id="configuring-helixs-runtime-files"><a class="header" href="#configuring-helixs-runtime-files">Configuring Helix's runtime files</a></h3>
 <h4 id="linux-and-macos"><a class="header" href="#linux-and-macos">Linux and macOS</a></h4>
-<p>Either set the <code>HELIX_RUNTIME</code> environment variable to point to the runtime files and add it to your <code>~/.bashrc</code> or equivalent:</p>
-<pre><code class="language-sh">HELIX_RUNTIME=/home/user-name/src/helix/runtime
+<p>The <strong>runtime</strong> directory is one below the Helix source, so either set a
+<code>HELIX_RUNTIME</code> environment variable to point to that directory and add it to
+your <code>~/.bashrc</code> or equivalent:</p>
+<pre><code class="language-sh">HELIX_RUNTIME=~/src/helix/runtime
 </code></pre>
-<p>Or, create a symlink in <code>~/.config/helix</code> that links to the source code directory:</p>
-<pre><code class="language-sh">ln -s $PWD/runtime ~/.config/helix/runtime
+<p>Or, create a symbolic link:</p>
+<pre><code class="language-sh">ln -Ts $PWD/runtime ~/.config/helix/runtime
 </code></pre>
+<p>If the above command fails to create a symbolic link because the file exists either move <code>~/.config/helix/runtime</code> to a new location or delete it, then run the symlink command above again. </p>
 <h4 id="windows-1"><a class="header" href="#windows-1">Windows</a></h4>
 <p>Either set the <code>HELIX_RUNTIME</code> environment variable to point to the runtime files using the Windows setting (search for
 <code>Edit environment variables for your account</code>) or use the <code>setx</code> command in

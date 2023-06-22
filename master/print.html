@@ -167,6 +167,7 @@ For everything else (e.g., how to install supported language servers), see the <
 <li><a href="install.html#fedorarhel">Fedora/RHEL</a></li>
 <li><a href="install.html#arch-linux-community">Arch Linux community</a></li>
 <li><a href="install.html#nixos">NixOS</a></li>
+<li><a href="install.html#flatpak">Flatpak</a></li>
 <li><a href="install.html#appimage">AppImage</a></li>
 </ul>
 </li>
@@ -185,7 +186,13 @@ For everything else (e.g., how to install supported language servers), see the <
 </li>
 <li><a href="install.html#building-from-source">Building from source</a>
 <ul>
-<li><a href="install.html#configuring-helixs-runtime-files">Configuring Helix's runtime files</a></li>
+<li><a href="install.html#configuring-helixs-runtime-files">Configuring Helix's runtime files</a>
+<ul>
+<li><a href="install.html#linux-and-macos">Linux and macOS</a></li>
+<li><a href="install.html#windows">Windows</a></li>
+<li><a href="install.html#multiple-runtime-directories">Multiple runtime directories</a></li>
+</ul>
+</li>
 <li><a href="install.html#validating-the-installation">Validating the installation</a></li>
 <li><a href="install.html#configure-the-desktop-shortcut">Configure the desktop shortcut</a></li>
 </ul>
@@ -232,7 +239,9 @@ sudo dnf install helix
 <p>Additionally, a <a href="https://aur.archlinux.org/packages/helix-git/">helix-git</a> package is available
 in the AUR, which builds the master branch.</p>
 <h3 id="nixos"><a class="header" href="#nixos">NixOS</a></h3>
-<p>Helix is available as a <a href="https://nixos.wiki/wiki/Flakes">flake</a> in the project
+<p>Helix is available in <a href="https://github.com/nixos/nixpkgs">nixpkgs</a> through the <code>helix</code> attribute,
+the unstable channel usually carries the latest release.</p>
+<p>Helix is also available as a <a href="https://nixos.wiki/wiki/Flakes">flake</a> in the project
 root. Use <code>nix develop</code> to spin up a reproducible development shell. Outputs are
 cached for each push to master using <a href="https://www.cachix.org/">Cachix</a>. The
 flake is configured to automatically make use of this cache assuming the user
@@ -240,6 +249,11 @@ accepts the new settings on first use.</p>
 <p>If you are using a version of Nix without flakes enabled,
 <a href="https://docs.cachix.org/installation">install Cachix CLI</a> and use
 <code>cachix use helix</code> to configure Nix to use cached outputs when possible.</p>
+<h3 id="flatpak"><a class="header" href="#flatpak">Flatpak</a></h3>
+<p>Helix is available on <a href="https://flathub.org/en-GB/apps/com.helix_editor.Helix">Flathub</a>:</p>
+<pre><code class="language-sh">flatpak install flathub com.helix_editor.Helix
+flatpak run com.helix_editor.Helix
+</code></pre>
 <h3 id="appimage"><a class="header" href="#appimage">AppImage</a></h3>
 <p>Install Helix using the Linux <a href="https://appimage.org/">AppImage</a> format.
 Download the official Helix AppImage from the <a href="https://github.com/helix-editor/helix/releases/latest">latest releases</a> page.</p>
@@ -270,10 +284,13 @@ You can get <a href="https://www.microsoft.com/p/app-installer/9nblggh4nns1#acti
 </code></pre>
 <h2 id="building-from-source"><a class="header" href="#building-from-source">Building from source</a></h2>
 <p>Requirements:</p>
+<p>Clone the Helix GitHub repository into a directory of your choice. The
+examples in this documentation assume installation into either <code>~/src/</code> on
+Linux and macOS, or <code>%userprofile%\src\</code> on Windows.</p>
 <ul>
 <li>The <a href="https://www.rust-lang.org/tools/install">Rust toolchain</a></li>
 <li>The <a href="https://git-scm.com/">Git version control system</a></li>
-<li>A c++14 compatible compiler to build the tree-sitter grammars, for example GCC or Clang</li>
+<li>A C++14 compatible compiler to build the tree-sitter grammars, for example GCC or Clang</li>
 </ul>
 <p>If you are using the <code>musl-libc</code> standard library instead of <code>glibc</code> the following environment variable must be set during the build to ensure tree-sitter grammars can be loaded correctly:</p>
 <pre><code class="language-sh">RUSTFLAGS=&quot;-C target-feature=-crt-static&quot;
@@ -300,12 +317,15 @@ the <code>runtime</code> directory within the user's helix config directory (mor
 </blockquote>
 <h3 id="configuring-helixs-runtime-files"><a class="header" href="#configuring-helixs-runtime-files">Configuring Helix's runtime files</a></h3>
 <h4 id="linux-and-macos"><a class="header" href="#linux-and-macos">Linux and macOS</a></h4>
-<p>Either set the <code>HELIX_RUNTIME</code> environment variable to point to the runtime files and add it to your <code>~/.bashrc</code> or equivalent:</p>
-<pre><code class="language-sh">HELIX_RUNTIME=/home/user-name/src/helix/runtime
+<p>The <strong>runtime</strong> directory is one below the Helix source, so either set a
+<code>HELIX_RUNTIME</code> environment variable to point to that directory and add it to
+your <code>~/.bashrc</code> or equivalent:</p>
+<pre><code class="language-sh">HELIX_RUNTIME=~/src/helix/runtime
 </code></pre>
-<p>Or, create a symlink in <code>~/.config/helix</code> that links to the source code directory:</p>
-<pre><code class="language-sh">ln -s $PWD/runtime ~/.config/helix/runtime
+<p>Or, create a symbolic link:</p>
+<pre><code class="language-sh">ln -Ts $PWD/runtime ~/.config/helix/runtime
 </code></pre>
+<p>If the above command fails to create a symbolic link because the file exists either move <code>~/.config/helix/runtime</code> to a new location or delete it, then run the symlink command above again. </p>
 <h4 id="windows-1"><a class="header" href="#windows-1">Windows</a></h4>
 <p>Either set the <code>HELIX_RUNTIME</code> environment variable to point to the runtime files using the Windows setting (search for
 <code>Edit environment variables for your account</code>) or use the <code>setx</code> command in
@@ -445,15 +465,15 @@ function or block of code.</p>
 <tr><td><code>(</code>, <code>[</code>, <code>'</code>, etc.</td><td>Specified surround pairs</td></tr>
 <tr><td><code>m</code></td><td>The closest surround pair</td></tr>
 <tr><td><code>f</code></td><td>Function</td></tr>
-<tr><td><code>c</code></td><td>Class</td></tr>
+<tr><td><code>t</code></td><td>Type (or Class)</td></tr>
 <tr><td><code>a</code></td><td>Argument/parameter</td></tr>
-<tr><td><code>o</code></td><td>Comment</td></tr>
-<tr><td><code>t</code></td><td>Test</td></tr>
+<tr><td><code>c</code></td><td>Comment</td></tr>
+<tr><td><code>T</code></td><td>Test</td></tr>
 <tr><td><code>g</code></td><td>Change</td></tr>
 </tbody></table>
 </div>
 <blockquote>
-<p>💡 <code>f</code>, <code>c</code>, etc. need a tree-sitter grammar active for the current
+<p>💡 <code>f</code>, <code>t</code>, etc. need a tree-sitter grammar active for the current
 document and a special tree-sitter query file to work properly. <a href="./lang-support.html">Only
 some grammars</a> currently have the query file implemented.
 Contributions are welcome!</p>
@@ -462,7 +482,7 @@ Contributions are welcome!</p>
 <p>Navigating between functions, classes, parameters, and other elements is
 possible using tree-sitter and textobject queries. For
 example to move to the next function use <code>]f</code>, to move to previous
-class use <code>[c</code>, and so on.</p>
+type use <code>[t</code>, and so on.</p>
 <p><img src="https://user-images.githubusercontent.com/23398472/152332550-7dfff043-36a2-4aec-b8f2-77c13eb56d6f.gif" alt="Tree-sitter-nav-demo" /></p>
 <p>For the full reference see the <a href="./keymap.html#unimpaired">unimpaired</a> section of the key bind
 documentation.</p>
@@ -558,6 +578,7 @@ selection to the &quot;func&quot; <code>identifier</code>.</p>
 <p>💡 Mappings marked (<strong>TS</strong>) require a tree-sitter grammar for the file type.</p>
 </blockquote>
 <h2 id="normal-mode"><a class="header" href="#normal-mode">Normal mode</a></h2>
+<p>Normal mode is the default mode when you launch helix. Return to it from other modes by typing <code>Escape</code>.</p>
 <h3 id="movement"><a class="header" href="#movement">Movement</a></h3>
 <blockquote>
 <p>NOTE: Unlike Vim, <code>f</code>, <code>F</code>, <code>t</code> and <code>T</code> are not confined to the current line.</p>
@@ -639,7 +660,8 @@ selection to the &quot;func&quot; <code>identifier</code>.</p>
 <tr><td><code>s</code></td><td>Select all regex matches inside selections</td><td><code>select_regex</code></td></tr>
 <tr><td><code>S</code></td><td>Split selection into sub selections on regex matches</td><td><code>split_selection</code></td></tr>
 <tr><td><code>Alt-s</code></td><td>Split selection on newlines</td><td><code>split_selection_on_newline</code></td></tr>
-<tr><td><code>Alt-_ </code></td><td>Merge consecutive selections</td><td><code>merge_consecutive_selections</code></td></tr>
+<tr><td><code>Alt-minus</code></td><td>Merge selections</td><td><code>merge_selections</code></td></tr>
+<tr><td><code>Alt-_</code></td><td>Merge consecutive selections</td><td><code>merge_consecutive_selections</code></td></tr>
 <tr><td><code>&amp;</code></td><td>Align selection in columns</td><td><code>align_selections</code></td></tr>
 <tr><td><code>_</code></td><td>Trim whitespace from the selection</td><td><code>trim_selections</code></td></tr>
 <tr><td><code>;</code></td><td>Collapse selection onto a single cursor</td><td><code>collapse_selection</code></td></tr>
@@ -839,6 +861,7 @@ useful when you're simply looking over text and not actively editing it.</p>
 </tbody></table>
 </div>
 <h2 id="insert-mode"><a class="header" href="#insert-mode">Insert mode</a></h2>
+<p>Accessed by typing <code>i</code> in <a href="keymap.html#normal-mode">normal mode</a>.</p>
 <p>Insert mode bindings are minimal by default. Helix is designed to
 be a modal editor, and this is reflected in the user experience and internal
 mechanics. Changes to the text are only saved for undos when
@@ -887,9 +910,10 @@ home = &quot;no_op&quot;
 end = &quot;no_op&quot;
 </code></pre>
 <h2 id="select--extend-mode"><a class="header" href="#select--extend-mode">Select / extend mode</a></h2>
+<p>Accessed by typing <code>v</code> in <a href="keymap.html#normal-mode">normal mode</a>.</p>
 <p>Select mode echoes Normal mode, but changes any movements to extend
 selections rather than replace them. Goto motions are also changed to
-extend, so that <code>vgl</code> for example extends the selection to the end of
+extend, so that <code>vgl</code>, for example, extends the selection to the end of
 the line.</p>
 <p>Search is also affected. By default, <code>n</code> and <code>N</code> will remove the current
 selection and select the next instance of the search term. Toggling this
@@ -951,7 +975,9 @@ you to selectively add search terms to your selections.</p>
 <tr><td><code>:buffer-next</code>, <code>:bn</code>, <code>:bnext</code></td><td>Goto next buffer.</td></tr>
 <tr><td><code>:buffer-previous</code>, <code>:bp</code>, <code>:bprev</code></td><td>Goto previous buffer.</td></tr>
 <tr><td><code>:write</code>, <code>:w</code></td><td>Write changes to disk. Accepts an optional path (:write some/path.txt)</td></tr>
-<tr><td><code>:write!</code>, <code>:w!</code></td><td>Force write changes to disk creating necessary subdirectories. Accepts an optional path (:write some/path.txt)</td></tr>
+<tr><td><code>:write!</code>, <code>:w!</code></td><td>Force write changes to disk creating necessary subdirectories. Accepts an optional path (:write! some/path.txt)</td></tr>
+<tr><td><code>:write-buffer-close</code>, <code>:wbc</code></td><td>Write changes to disk and closes the buffer. Accepts an optional path (:write-buffer-close some/path.txt)</td></tr>
+<tr><td><code>:write-buffer-close!</code>, <code>:wbc!</code></td><td>Force write changes to disk creating necessary subdirectories and closes the buffer. Accepts an optional path (:write-buffer-close! some/path.txt)</td></tr>
 <tr><td><code>:new</code>, <code>:n</code></td><td>Create a new scratch buffer.</td></tr>
 <tr><td><code>:format</code>, <code>:fmt</code></td><td>Format the file using the LSP formatter.</td></tr>
 <tr><td><code>:indent-style</code></td><td>Set the indentation style for editing. ('t' for tabs or 1-8 for number of spaces.)</td></tr>
@@ -968,6 +994,7 @@ you to selectively add search terms to your selections.</p>
 <tr><td><code>:cquit</code>, <code>:cq</code></td><td>Quit with exit code (default 1). Accepts an optional integer exit code (:cq 2).</td></tr>
 <tr><td><code>:cquit!</code>, <code>:cq!</code></td><td>Force quit with exit code (default 1) ignoring unsaved changes. Accepts an optional integer exit code (:cq! 2).</td></tr>
 <tr><td><code>:theme</code></td><td>Change the editor theme (show current theme if no name specified).</td></tr>
+<tr><td><code>:yank-join</code></td><td>Yank joined selections. A separator can be provided as first argument. Default value is newline.</td></tr>
 <tr><td><code>:clipboard-yank</code></td><td>Yank main selection into system clipboard.</td></tr>
 <tr><td><code>:clipboard-yank-join</code></td><td>Yank joined selections into system clipboard. A separator can be provided as first argument. Default value is newline.</td></tr>
 <tr><td><code>:primary-clipboard-yank</code></td><td>Yank main selection into system primary clipboard.</td></tr>
@@ -983,12 +1010,12 @@ you to selectively add search terms to your selections.</p>
 <tr><td><code>:show-directory</code>, <code>:pwd</code></td><td>Show the current working directory.</td></tr>
 <tr><td><code>:encoding</code></td><td>Set encoding. Based on <code>https://encoding.spec.whatwg.org</code>.</td></tr>
 <tr><td><code>:character-info</code>, <code>:char</code></td><td>Get info about the character under the primary cursor.</td></tr>
-<tr><td><code>:reload</code></td><td>Discard changes and reload from the source file.</td></tr>
-<tr><td><code>:reload-all</code></td><td>Discard changes and reload all documents from the source files.</td></tr>
+<tr><td><code>:reload</code>, <code>:rl</code></td><td>Discard changes and reload from the source file.</td></tr>
+<tr><td><code>:reload-all</code>, <code>:rla</code></td><td>Discard changes and reload all documents from the source files.</td></tr>
 <tr><td><code>:update</code>, <code>:u</code></td><td>Write changes only if the file has been modified.</td></tr>
 <tr><td><code>:lsp-workspace-command</code></td><td>Open workspace command picker</td></tr>
-<tr><td><code>:lsp-restart</code></td><td>Restarts the Language Server that is in use by the current doc</td></tr>
-<tr><td><code>:lsp-stop</code></td><td>Stops the Language Server that is in use by the current doc</td></tr>
+<tr><td><code>:lsp-restart</code></td><td>Restarts the language servers used by the current doc</td></tr>
+<tr><td><code>:lsp-stop</code></td><td>Stops the language servers that are used by the current doc</td></tr>
 <tr><td><code>:tree-sitter-scopes</code></td><td>Display tree sitter scopes, primarily for theming and development.</td></tr>
 <tr><td><code>:debug-start</code>, <code>:dbg</code></td><td>Start a debug session from a given template with given parameters.</td></tr>
 <tr><td><code>:debug-remote</code>, <code>:dbg-tcp</code></td><td>Connect to a debug adapter by TCP address and start a debugging session from a given template with given parameters.</td></tr>
@@ -1034,10 +1061,11 @@ Languages</a> guide for more language configuration information.</p>
 <tr><td>beancount</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>bibtex</td><td>✓</td><td></td><td></td><td><code>texlab</code></td></tr>
 <tr><td>bicep</td><td>✓</td><td></td><td></td><td><code>bicep-langserver</code></td></tr>
+<tr><td>blueprint</td><td>✓</td><td></td><td></td><td><code>blueprint-compiler</code></td></tr>
 <tr><td>c</td><td>✓</td><td>✓</td><td>✓</td><td><code>clangd</code></td></tr>
 <tr><td>c-sharp</td><td>✓</td><td>✓</td><td></td><td><code>OmniSharp</code></td></tr>
-<tr><td>cabal</td><td>✓</td><td></td><td></td><td></td></tr>
-<tr><td>cairo</td><td>✓</td><td></td><td></td><td></td></tr>
+<tr><td>cabal</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>cairo</td><td>✓</td><td>✓</td><td>✓</td><td><code>cairo-language-server</code></td></tr>
 <tr><td>capnp</td><td>✓</td><td></td><td>✓</td><td></td></tr>
 <tr><td>clojure</td><td>✓</td><td></td><td></td><td><code>clojure-lsp</code></td></tr>
 <tr><td>cmake</td><td>✓</td><td>✓</td><td>✓</td><td><code>cmake-language-server</code></td></tr>
@@ -1067,6 +1095,7 @@ Languages</a> guide for more language configuration information.</p>
 <tr><td>erlang</td><td>✓</td><td>✓</td><td></td><td><code>erlang_ls</code></td></tr>
 <tr><td>esdl</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>fish</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
+<tr><td>forth</td><td>✓</td><td></td><td></td><td><code>forth-lsp</code></td></tr>
 <tr><td>fortran</td><td>✓</td><td></td><td>✓</td><td><code>fortls</code></td></tr>
 <tr><td>gdscript</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
 <tr><td>git-attributes</td><td>✓</td><td></td><td></td><td></td></tr>
@@ -1168,6 +1197,7 @@ Languages</a> guide for more language configuration information.</p>
 <tr><td>svelte</td><td>✓</td><td></td><td></td><td><code>svelteserver</code></td></tr>
 <tr><td>sway</td><td>✓</td><td>✓</td><td>✓</td><td><code>forc</code></td></tr>
 <tr><td>swift</td><td>✓</td><td></td><td></td><td><code>sourcekit-lsp</code></td></tr>
+<tr><td>t32</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>tablegen</td><td>✓</td><td>✓</td><td>✓</td><td></td></tr>
 <tr><td>task</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>tfvars</td><td>✓</td><td></td><td>✓</td><td><code>terraform-ls</code></td></tr>
@@ -1183,9 +1213,10 @@ Languages</a> guide for more language configuration information.</p>
 <tr><td>verilog</td><td>✓</td><td>✓</td><td></td><td><code>svlangserver</code></td></tr>
 <tr><td>vhdl</td><td>✓</td><td></td><td></td><td><code>vhdl_ls</code></td></tr>
 <tr><td>vhs</td><td>✓</td><td></td><td></td><td></td></tr>
-<tr><td>vue</td><td>✓</td><td></td><td></td><td><code>vls</code></td></tr>
+<tr><td>vue</td><td>✓</td><td></td><td></td><td><code>vue-language-server</code></td></tr>
 <tr><td>wast</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>wat</td><td>✓</td><td></td><td></td><td></td></tr>
+<tr><td>webc</td><td>✓</td><td></td><td></td><td></td></tr>
 <tr><td>wgsl</td><td>✓</td><td></td><td></td><td><code>wgsl_analyzer</code></td></tr>
 <tr><td>wit</td><td>✓</td><td></td><td>✓</td><td></td></tr>
 <tr><td>xit</td><td>✓</td><td></td><td></td><td></td></tr>
@@ -1251,6 +1282,7 @@ Its settings will be merged with the configuration directory <code>config.toml</
 <tr><td><code>auto-format</code></td><td>Enable automatic formatting on save</td><td><code>true</code></td></tr>
 <tr><td><code>auto-save</code></td><td>Enable automatic saving on the focus moving away from Helix. Requires <a href="https://github.com/helix-editor/helix/wiki/Terminal-Support">focus event support</a> from your terminal</td><td><code>false</code></td></tr>
 <tr><td><code>idle-timeout</code></td><td>Time in milliseconds since last keypress before idle timers trigger. Used for autocompletion, set to 0 for instant</td><td><code>400</code></td></tr>
+<tr><td><code>preview-completion-insert</code></td><td>Whether to apply completion item instantly when selected</td><td><code>true</code></td></tr>
 <tr><td><code>completion-trigger-len</code></td><td>The min-length of word under cursor to trigger autocompletion</td><td><code>2</code></td></tr>
 <tr><td><code>completion-replace</code></td><td>Set to <code>true</code> to make completions always replace the entire word and not just the part before the cursor</td><td><code>false</code></td></tr>
 <tr><td><code>auto-info</code></td><td>Whether to display info boxes</td><td><code>true</code></td></tr>
@@ -1261,6 +1293,7 @@ Its settings will be merged with the configuration directory <code>config.toml</
 <tr><td><code>color-modes</code></td><td>Whether to color the mode indicator with different colors depending on the mode itself</td><td><code>false</code></td></tr>
 <tr><td><code>text-width</code></td><td>Maximum line length. Used for the <code>:reflow</code> command and soft-wrapping if <code>soft-wrap.wrap-at-text-width</code> is set</td><td><code>80</code></td></tr>
 <tr><td><code>workspace-lsp-roots</code></td><td>Directories relative to the workspace root that are treated as LSP roots. Should only be set in <code>.helix/config.toml</code></td><td><code>[]</code></td></tr>
+<tr><td><code>default-line-ending</code></td><td>The line ending to use for new documents. Can be <code>native</code>, <code>lf</code>, <code>crlf</code>, <code>ff</code>, <code>cr</code> or <code>nel</code>. <code>native</code> uses the platform's native line ending (<code>crlf</code> on Windows, otherwise <code>lf</code>).</td><td><code>native</code></td></tr>
 </tbody></table>
 </div>
 <h3 id="editorstatusline-section"><a class="header" href="#editorstatusline-section"><code>[editor.statusline]</code> Section</a></h3>
@@ -1308,6 +1341,7 @@ mode.select = &quot;SELECT&quot;
 <tr><td><code>separator</code></td><td>The string defined in <code>editor.statusline.separator</code> (defaults to <code>&quot;│&quot;</code>)</td></tr>
 <tr><td><code>spacer</code></td><td>Inserts a space between elements (multiple/contiguous spacers may be specified)</td></tr>
 <tr><td><code>version-control</code></td><td>The current branch name or detached commit hash of the opened workspace</td></tr>
+<tr><td><code>register</code></td><td>The current selected register</td></tr>
 </tbody></table>
 </div>
 <h3 id="editorlsp-section"><a class="header" href="#editorlsp-section"><code>[editor.lsp]</code> Section</a></h3>
@@ -1322,9 +1356,10 @@ mode.select = &quot;SELECT&quot;
 </tbody></table>
 </div>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p>By default, a progress spinner is shown in the statusline beside the file path.
-<sup class="footnote-reference"><a href="#2">2</a></sup>: You may also have to activate them in the LSP config for them to appear, not just in Helix.
-Inlay hints in Helix are still being improved on and may be a little bit laggy/janky under some circumstances, please report any bugs you see so we can fix them!</p>
+<p>By default, a progress spinner is shown in the statusline beside the file path.</p>
+</div>
+<div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
+<p>You may also have to activate them in the LSP config for them to appear, not just in Helix. Inlay hints in Helix are still being improved on and may be a little bit laggy/janky under some circumstances. Please report any bugs you see so we can fix them!</p>
 </div>
 <h3 id="editorcursor-shape-section"><a class="header" href="#editorcursor-shape-section"><code>[editor.cursor-shape]</code> Section</a></h3>
 <p>Defines the shape of cursor in each mode.
@@ -1835,7 +1870,7 @@ berry = &quot;#2A2A4D&quot;
 <tr><td><code>ui.window</code></td><td>Borderlines separating splits</td></tr>
 <tr><td><code>ui.help</code></td><td>Description box for commands</td></tr>
 <tr><td><code>ui.text</code></td><td>Command prompts, popup text, etc.</td></tr>
-<tr><td><code>ui.text.focus</code></td><td></td></tr>
+<tr><td><code>ui.text.focus</code></td><td>The currently selected line in the picker</td></tr>
 <tr><td><code>ui.text.inactive</code></td><td>Same as <code>ui.text</code> but when the text is inactive (e.g. suggestions)</td></tr>
 <tr><td><code>ui.text.info</code></td><td>The key: command text in <code>ui.popup.info</code> boxes</td></tr>
 <tr><td><code>ui.virtual.ruler</code></td><td>Ruler columns (see the <a href="./configuration.html#editor-section"><code>editor.rulers</code> config</a>)</td></tr>
@@ -1939,27 +1974,30 @@ in <code>languages.toml</code> files.</p>
 <p>There are three possible locations for a <code>languages.toml</code> file:</p>
 <ol>
 <li>
-<p>In the Helix source code, this lives in the
+<p>In the Helix source code, which lives in the
 <a href="https://github.com/helix-editor/helix/blob/master/languages.toml">Helix repository</a>.
 It provides the default configurations for languages and language servers.</p>
 </li>
 <li>
 <p>In your <a href="./configuration.html">configuration directory</a>. This overrides values
-from the built-in language configuration. For example to disable
+from the built-in language configuration. For example, to disable
 auto-LSP-formatting in Rust:</p>
-</li>
-</ol>
 <pre><code class="language-toml"># in &lt;config_dir&gt;/helix/languages.toml
+
+[language-server.mylang-lsp]
+command = &quot;mylang-lsp&quot;
 
 [[language]]
 name = &quot;rust&quot;
 auto-format = false
 </code></pre>
-<ol start="3">
-<li>In a <code>.helix</code> folder in your project. Language configuration may also be
+</li>
+<li>
+<p>In a <code>.helix</code> folder in your project. Language configuration may also be
 overridden local to a project by creating a <code>languages.toml</code> file in a
 <code>.helix</code> folder. Its settings will be merged with the language configuration
-in the configuration directory and the built-in configuration.</li>
+in the configuration directory and the built-in configuration.</p>
+</li>
 </ol>
 <h2 id="language-configuration"><a class="header" href="#language-configuration">Language configuration</a></h2>
 <p>Each language is configured by adding a <code>[[language]]</code> section to a
@@ -1971,12 +2009,13 @@ injection-regex = &quot;mylang&quot;
 file-types = [&quot;mylang&quot;, &quot;myl&quot;]
 comment-token = &quot;#&quot;
 indent = { tab-width = 2, unit = &quot;  &quot; }
-language-server = { command = &quot;mylang-lsp&quot;, args = [&quot;--stdio&quot;], environment = { &quot;ENV1&quot; = &quot;value1&quot;, &quot;ENV2&quot; = &quot;value2&quot; } }
 formatter = { command = &quot;mylang-formatter&quot; , args = [&quot;--stdin&quot;] }
+language-servers = [ &quot;mylang-lsp&quot; ]
 </code></pre>
 <p>These configuration keys are available:</p>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>name</code></td><td>The name of the language</td></tr>
+<tr><td><code>language-id</code></td><td>The language-id for language servers, checkout the table at <a href="https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocumentItem">TextDocumentItem</a> for the right id</td></tr>
 <tr><td><code>scope</code></td><td>A string like <code>source.js</code> that identifies the language. Currently, we strive to match the scope names used by popular TextMate grammars and by the Linguist library. Usually <code>source.&lt;name&gt;</code> or <code>text.&lt;name&gt;</code> in case of markup languages</td></tr>
 <tr><td><code>injection-regex</code></td><td>regex pattern that will be tested against a language name in order to determine whether this language should be used for a potential <a href="https://tree-sitter.github.io/tree-sitter/syntax-highlighting#language-injection">language injection</a> site.</td></tr>
 <tr><td><code>file-types</code></td><td>The filetypes of the language, for example <code>[&quot;yml&quot;, &quot;yaml&quot;]</code>. See the file-type detection section below.</td></tr>
@@ -1986,8 +2025,7 @@ formatter = { command = &quot;mylang-formatter&quot; , args = [&quot;--stdin&quo
 <tr><td><code>diagnostic-severity</code></td><td>Minimal severity of diagnostic for it to be displayed. (Allowed values: <code>Error</code>, <code>Warning</code>, <code>Info</code>, <code>Hint</code>)</td></tr>
 <tr><td><code>comment-token</code></td><td>The token to use as a comment-token</td></tr>
 <tr><td><code>indent</code></td><td>The indent to use. Has sub keys <code>unit</code> (the text inserted into the document when indenting; usually set to N spaces or <code>&quot;\t&quot;</code> for tabs) and <code>tab-width</code> (the number of spaces rendered for a tab)</td></tr>
-<tr><td><code>language-server</code></td><td>The Language Server to run. See the Language Server configuration section below.</td></tr>
-<tr><td><code>config</code></td><td>Language Server configuration</td></tr>
+<tr><td><code>language-servers</code></td><td>The Language Servers used for this language. See below for more information in the section <a href="languages.html#configuring-language-servers-for-a-language">Configuring Language Servers for a language</a></td></tr>
 <tr><td><code>grammar</code></td><td>The tree-sitter grammar to use (defaults to the value of <code>name</code>)</td></tr>
 <tr><td><code>formatter</code></td><td>The formatter for the language, it will take precedence over the lsp when defined. The formatter must be able to take the original file as input from stdin and write the formatted file to stdout</td></tr>
 <tr><td><code>text-width</code></td><td>Maximum line length. Used for the <code>:reflow</code> command and soft-wrapping if <code>soft-wrap.wrap-at-text-width</code> is set, defaults to <code>editor.text-width</code></td></tr>
@@ -2016,26 +2054,81 @@ in <code>.git</code> directories. Note: <code>/</code> is used as the directory 
 replaced at runtime with the appropriate path separator for the operating
 system, so this rule would match against <code>.git\config</code> files on Windows.</li>
 </ol>
-<h3 id="language-server-configuration"><a class="header" href="#language-server-configuration">Language Server configuration</a></h3>
-<p>The <code>language-server</code> field takes the following keys:</p>
+<h2 id="language-server-configuration"><a class="header" href="#language-server-configuration">Language Server configuration</a></h2>
+<p>Language servers are configured separately in the table <code>language-server</code> in the same file as the languages <code>languages.toml</code></p>
+<p>For example:</p>
+<pre><code class="language-toml">[language-server.mylang-lsp]
+command = &quot;mylang-lsp&quot;
+args = [&quot;--stdio&quot;]
+config = { provideFormatter = true }
+environment = { &quot;ENV1&quot; = &quot;value1&quot;, &quot;ENV2&quot; = &quot;value2&quot; }
+
+[language-server.efm-lsp-prettier]
+command = &quot;efm-langserver&quot;
+
+[language-server.efm-lsp-prettier.config]
+documentFormatting = true
+languages = { typescript = [ { formatCommand =&quot;prettier --stdin-filepath ${INPUT}&quot;, formatStdin = true } ] }
+</code></pre>
+<p>These are the available options for a language server.</p>
 <div class="table-wrapper"><table><thead><tr><th>Key</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>command</code></td><td>The name of the language server binary to execute. Binaries must be in <code>$PATH</code></td></tr>
+<tr><td><code>command</code></td><td>The name or path of the language server binary to execute. Binaries must be in <code>$PATH</code></td></tr>
 <tr><td><code>args</code></td><td>A list of arguments to pass to the language server binary</td></tr>
+<tr><td><code>config</code></td><td>LSP initialization options</td></tr>
 <tr><td><code>timeout</code></td><td>The maximum time a request to the language server may take, in seconds. Defaults to <code>20</code></td></tr>
-<tr><td><code>language-id</code></td><td>The language name to pass to the language server. Some language servers support multiple languages and use this field to determine which one is being served in a buffer</td></tr>
 <tr><td><code>environment</code></td><td>Any environment variables that will be used when starting the language server <code>{ &quot;KEY1&quot; = &quot;Value1&quot;, &quot;KEY2&quot; = &quot;Value2&quot; }</code></td></tr>
 </tbody></table>
 </div>
-<p>The top-level <code>config</code> field is used to configure the LSP initialization options. A <code>format</code>
-sub-table within <code>config</code> can be used to pass extra formatting options to
-<a href="https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#document-formatting-request--leftwards_arrow_with_hook">Document Formatting Requests</a>.
-For example with typescript:</p>
-<pre><code class="language-toml">[[language]]
-name = &quot;typescript&quot;
-auto-format = true
+<p>A <code>format</code> sub-table within <code>config</code> can be used to pass extra formatting options to
+<a href="https://github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-17.md#document-formatting-request--leftwards_arrow_with_hook">Document Formatting Requests</a>.
+For example, with typescript:</p>
+<pre><code class="language-toml">[language-server.typescript-language-server]
 # pass format options according to https://github.com/typescript-language-server/typescript-language-server#workspacedidchangeconfiguration omitting the &quot;[language].format.&quot; prefix.
 config = { format = { &quot;semicolons&quot; = &quot;insert&quot;, &quot;insertSpaceBeforeFunctionParenthesis&quot; = true } }
 </code></pre>
+<h3 id="configuring-language-servers-for-a-language"><a class="header" href="#configuring-language-servers-for-a-language">Configuring Language Servers for a language</a></h3>
+<p>The <code>language-servers</code> attribute in a language tells helix which language servers are used for this language.</p>
+<p>They have to be defined in the <code>[language-server]</code> table as described in the previous section.</p>
+<p>Different languages can use the same language server instance, e.g. <code>typescript-language-server</code> is used for javascript, jsx, tsx and typescript by default.</p>
+<p>In case multiple language servers are specified in the <code>language-servers</code> attribute of a <code>language</code>,
+it's often useful to only enable/disable certain language-server features for these language servers.</p>
+<p>As an example, <code>efm-lsp-prettier</code> of the previous example is used only with a formatting command <code>prettier</code>,
+so everything else should be handled by the <code>typescript-language-server</code> (which is configured by default).
+The language configuration for typescript could look like this:</p>
+<pre><code class="language-toml">[[language]]
+name = &quot;typescript&quot;
+language-servers = [ { name = &quot;efm-lsp-prettier&quot;, only-features = [ &quot;format&quot; ] }, &quot;typescript-language-server&quot; ]
+</code></pre>
+<p>or equivalent:</p>
+<pre><code class="language-toml">[[language]]
+name = &quot;typescript&quot;
+language-servers = [ { name = &quot;typescript-language-server&quot;, except-features = [ &quot;format&quot; ] }, &quot;efm-lsp-prettier&quot; ]
+</code></pre>
+<p>Each requested LSP feature is prioritized in the order of the <code>language-servers</code> array.
+For example, the first <code>goto-definition</code> supported language server (in this case <code>typescript-language-server</code>) will be taken for the relevant LSP request (command <code>goto_definition</code>).
+The features <code>diagnostics</code>, <code>code-action</code>, <code>completion</code>, <code>document-symbols</code> and <code>workspace-symbols</code> are an exception to that rule, as they are working for all language servers at the same time and are merged together, if enabled for the language.
+If no <code>except-features</code> or <code>only-features</code> is given, all features for the language server are enabled.
+If a language server itself doesn't support a feature, the next language server array entry will be tried (and so on).</p>
+<p>The list of supported features is:</p>
+<ul>
+<li><code>format</code></li>
+<li><code>goto-definition</code></li>
+<li><code>goto-declaration</code></li>
+<li><code>goto-type-definition</code></li>
+<li><code>goto-reference</code></li>
+<li><code>goto-implementation</code></li>
+<li><code>signature-help</code></li>
+<li><code>hover</code></li>
+<li><code>document-highlight</code></li>
+<li><code>completion</code></li>
+<li><code>code-action</code></li>
+<li><code>workspace-command</code></li>
+<li><code>document-symbols</code></li>
+<li><code>workspace-symbols</code></li>
+<li><code>diagnostics</code></li>
+<li><code>rename-symbol</code></li>
+<li><code>inlay-hints</code></li>
+</ul>
 <h2 id="tree-sitter-grammar-configuration"><a class="header" href="#tree-sitter-grammar-configuration">Tree-sitter grammar configuration</a></h2>
 <p>The source for a language's tree-sitter grammar is specified in a <code>[[grammar]]</code>
 section in <code>languages.toml</code>. For example:</p>
@@ -2077,7 +2170,8 @@ below.</p>
 <li>Add a new <code>[[language]]</code> entry in the <code>languages.toml</code> file and provide the
 necessary configuration for the new language. For more information on
 language configuration, refer to the
-<a href="guides/../languages.html">language configuration section</a> of the documentation.</li>
+<a href="guides/../languages.html">language configuration section</a> of the documentation.
+A new language server can be added by extending the <code>[language-server]</code> table in the same file.</li>
 <li>If you are adding a new language or updating an existing language server
 configuration, run the command <code>cargo xtask docgen</code> to update the
 <a href="guides/../lang-support.html">Language Support</a> documentation.</li>
