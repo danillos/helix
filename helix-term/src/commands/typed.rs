@@ -2454,6 +2454,18 @@ fn yank_diagnostic(
     Ok(())
 }
 
+fn echo(cx: &mut compositor::Context, args: &[Cow<str>], event: PromptEvent) -> anyhow::Result<()> {
+    if event != PromptEvent::Validate {
+        return Ok(());
+    }
+
+    let args = args.join(" ");
+
+    cx.editor.set_status(args);
+
+    Ok(())
+}
+
 pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
     TypableCommand {
         name: "quit",
@@ -3068,6 +3080,13 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         fun: yank_diagnostic,
         signature: CommandSignature::all(completers::register),
     },
+    TypableCommand {
+        name: "echo",
+        aliases: &[],
+        doc: "Print the processed input to the editor status",
+        fun: echo,
+        signature: CommandSignature::all(completers::variables)
+    }
 ];
 
 pub static TYPABLE_COMMAND_MAP: Lazy<HashMap<&'static str, &'static TypableCommand>> =
@@ -3131,6 +3150,18 @@ pub(super) fn command_mode(cx: &mut Context) {
             }
         }, // completion
         move |cx: &mut compositor::Context, input: &str, event: PromptEvent| {
+            let input: Cow<str> = if event == PromptEvent::Validate {
+                match cx.editor.expand_variables(input) {
+                    Ok(args) => args,
+                    Err(e) => {
+                        cx.editor.set_error(format!("{}", e));
+                        return;
+                    }
+                }
+            } else {
+                Cow::Borrowed(input)
+            };
+
             let parts = input.split_whitespace().collect::<Vec<&str>>();
             if parts.is_empty() {
                 return;
@@ -3146,7 +3177,7 @@ pub(super) fn command_mode(cx: &mut Context) {
 
             // Handle typable commands
             if let Some(cmd) = typed::TYPABLE_COMMAND_MAP.get(parts[0]) {
-                let shellwords = Shellwords::from(input);
+                let shellwords = Shellwords::from(input.as_ref());
                 let args = shellwords.words();
 
                 if let Err(e) = (cmd.fun)(cx, &args[1..], event) {
