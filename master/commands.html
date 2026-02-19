@@ -168,6 +168,8 @@
 <h2 id="typable-commands"><a class="header" href="#typable-commands">Typable commands</a></h2>
 <p>Typable commands are used from command mode and may take arguments. Command mode can be activated by pressing <code>:</code>. The built-in typable commands are:</p>
 <div class="table-wrapper"><table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>:exit</code>, <code>:x</code>, <code>:xit</code></td><td>Write changes to disk if the buffer is modified and then quit. Accepts an optional path (:exit some/path.txt).</td></tr>
+<tr><td><code>:exit!</code>, <code>:x!</code>, <code>:xit!</code></td><td>Force write changes to disk, creating necessary subdirectories, if the buffer is modified and then quit. Accepts an optional path (:exit! some/path.txt).</td></tr>
 <tr><td><code>:quit</code>, <code>:q</code></td><td>Close the current view.</td></tr>
 <tr><td><code>:quit!</code>, <code>:q!</code></td><td>Force close the current view, ignoring unsaved changes.</td></tr>
 <tr><td><code>:open</code>, <code>:o</code>, <code>:edit</code>, <code>:e</code></td><td>Open a file from disk into the current view.</td></tr>
@@ -189,12 +191,12 @@
 <tr><td><code>:line-ending</code></td><td>Set the document's default line ending. Options: crlf, lf.</td></tr>
 <tr><td><code>:earlier</code>, <code>:ear</code></td><td>Jump back to an earlier point in edit history. Accepts a number of steps or a time span.</td></tr>
 <tr><td><code>:later</code>, <code>:lat</code></td><td>Jump to a later point in edit history. Accepts a number of steps or a time span.</td></tr>
-<tr><td><code>:write-quit</code>, <code>:wq</code>, <code>:x</code></td><td>Write changes to disk and close the current view. Accepts an optional path (:wq some/path.txt)</td></tr>
-<tr><td><code>:write-quit!</code>, <code>:wq!</code>, <code>:x!</code></td><td>Write changes to disk and close the current view forcefully. Accepts an optional path (:wq! some/path.txt)</td></tr>
+<tr><td><code>:write-quit</code>, <code>:wq</code></td><td>Write changes to disk and close the current view. Accepts an optional path (:wq some/path.txt)</td></tr>
+<tr><td><code>:write-quit!</code>, <code>:wq!</code></td><td>Write changes to disk and close the current view forcefully. Accepts an optional path (:wq! some/path.txt)</td></tr>
 <tr><td><code>:write-all</code>, <code>:wa</code></td><td>Write changes from all buffers to disk.</td></tr>
 <tr><td><code>:write-all!</code>, <code>:wa!</code></td><td>Forcefully write changes from all buffers to disk creating necessary subdirectories.</td></tr>
 <tr><td><code>:write-quit-all</code>, <code>:wqa</code>, <code>:xa</code></td><td>Write changes from all buffers to disk and close all views.</td></tr>
-<tr><td><code>:write-quit-all!</code>, <code>:wqa!</code>, <code>:xa!</code></td><td>Write changes from all buffers to disk and close all views forcefully (ignoring unsaved changes).</td></tr>
+<tr><td><code>:write-quit-all!</code>, <code>:wqa!</code>, <code>:xa!</code></td><td>Forcefully write changes from all buffers to disk, creating necessary subdirectories, and close all views (ignoring unsaved changes).</td></tr>
 <tr><td><code>:quit-all</code>, <code>:qa</code></td><td>Close all views.</td></tr>
 <tr><td><code>:quit-all!</code>, <code>:qa!</code></td><td>Force close all views ignoring unsaved changes.</td></tr>
 <tr><td><code>:cquit</code>, <code>:cq</code></td><td>Quit with exit code (default 1). Accepts an optional integer exit code (:cq 2).</td></tr>
@@ -224,6 +226,7 @@
 <tr><td><code>:lsp-stop</code></td><td>Stops the given language servers, or all language servers that are used by the current file if no arguments are supplied</td></tr>
 <tr><td><code>:tree-sitter-scopes</code></td><td>Display tree sitter scopes, primarily for theming and development.</td></tr>
 <tr><td><code>:tree-sitter-highlight-name</code></td><td>Display name of tree-sitter highlight scope under the cursor.</td></tr>
+<tr><td><code>:tree-sitter-layers</code></td><td>Display language names of tree-sitter injection layers under the cursor.</td></tr>
 <tr><td><code>:debug-start</code>, <code>:dbg</code></td><td>Start a debug session from a given template with given parameters.</td></tr>
 <tr><td><code>:debug-remote</code>, <code>:dbg-tcp</code></td><td>Connect to a debug adapter by TCP address and start a debugging session from a given template with given parameters.</td></tr>
 <tr><td><code>:debug-eval</code></td><td>Evaluate expression in current debug context.</td></tr>
@@ -251,8 +254,10 @@
 <tr><td><code>:run-shell-command</code>, <code>:sh</code>, <code>:!</code></td><td>Run a shell command</td></tr>
 <tr><td><code>:reset-diff-change</code>, <code>:diffget</code>, <code>:diffg</code></td><td>Reset the diff change at the cursor position.</td></tr>
 <tr><td><code>:clear-register</code></td><td>Clear given register. If no argument is provided, clear all registers.</td></tr>
+<tr><td><code>:set-register</code></td><td>Set contents of the given register.</td></tr>
 <tr><td><code>:redraw</code></td><td>Clear and re-render the whole UI</td></tr>
 <tr><td><code>:move</code>, <code>:mv</code></td><td>Move the current buffer and its corresponding file to a different path</td></tr>
+<tr><td><code>:move!</code>, <code>:mv!</code></td><td>Move the current buffer and its corresponding file to a different path creating necessary subdirectories</td></tr>
 <tr><td><code>:yank-diagnostic</code></td><td>Yank diagnostic(s) under primary cursor to register, or clipboard by default</td></tr>
 <tr><td><code>:read</code>, <code>:r</code></td><td>Load a file into buffer</td></tr>
 <tr><td><code>:echo</code></td><td>Prints the given arguments to the statusline.</td></tr>
@@ -368,10 +373,14 @@
 <tr><td><code>code_action</code></td><td>Perform code action</td><td>normal: <code>&lt;space&gt;a</code>, select: <code>&lt;space&gt;a</code></td></tr>
 <tr><td><code>buffer_picker</code></td><td>Open buffer picker</td><td>normal: <code>&lt;space&gt;b</code>, select: <code>&lt;space&gt;b</code></td></tr>
 <tr><td><code>jumplist_picker</code></td><td>Open jumplist picker</td><td>normal: <code>&lt;space&gt;j</code>, select: <code>&lt;space&gt;j</code></td></tr>
-<tr><td><code>symbol_picker</code></td><td>Open symbol picker</td><td>normal: <code>&lt;space&gt;s</code>, select: <code>&lt;space&gt;s</code></td></tr>
+<tr><td><code>symbol_picker</code></td><td>Open symbol picker</td><td></td></tr>
+<tr><td><code>syntax_symbol_picker</code></td><td>Open symbol picker from syntax information</td><td></td></tr>
+<tr><td><code>lsp_or_syntax_symbol_picker</code></td><td>Open symbol picker from LSP or syntax information</td><td>normal: <code>&lt;space&gt;s</code>, select: <code>&lt;space&gt;s</code></td></tr>
 <tr><td><code>changed_file_picker</code></td><td>Open changed file picker</td><td>normal: <code>&lt;space&gt;g</code>, select: <code>&lt;space&gt;g</code></td></tr>
 <tr><td><code>select_references_to_symbol_under_cursor</code></td><td>Select symbol references</td><td>normal: <code>&lt;space&gt;h</code>, select: <code>&lt;space&gt;h</code></td></tr>
-<tr><td><code>workspace_symbol_picker</code></td><td>Open workspace symbol picker</td><td>normal: <code>&lt;space&gt;S</code>, select: <code>&lt;space&gt;S</code></td></tr>
+<tr><td><code>workspace_symbol_picker</code></td><td>Open workspace symbol picker</td><td></td></tr>
+<tr><td><code>syntax_workspace_symbol_picker</code></td><td>Open workspace symbol picker from syntax information</td><td></td></tr>
+<tr><td><code>lsp_or_syntax_workspace_symbol_picker</code></td><td>Open workspace symbol picker from LSP or syntax information</td><td>normal: <code>&lt;space&gt;S</code>, select: <code>&lt;space&gt;S</code></td></tr>
 <tr><td><code>diagnostics_picker</code></td><td>Open diagnostic picker</td><td>normal: <code>&lt;space&gt;d</code>, select: <code>&lt;space&gt;d</code></td></tr>
 <tr><td><code>workspace_diagnostics_picker</code></td><td>Open workspace diagnostic picker</td><td>normal: <code>&lt;space&gt;D</code>, select: <code>&lt;space&gt;D</code></td></tr>
 <tr><td><code>last_picker</code></td><td>Open last picker</td><td>normal: <code>&lt;space&gt;'</code>, select: <code>&lt;space&gt;'</code></td></tr>
@@ -430,6 +439,8 @@
 <tr><td><code>smart_tab</code></td><td>Insert tab if all cursors have all whitespace to their left; otherwise, run a separate command.</td><td>insert: <code>&lt;tab&gt;</code></td></tr>
 <tr><td><code>insert_tab</code></td><td>Insert tab char</td><td>insert: <code>&lt;S-tab&gt;</code></td></tr>
 <tr><td><code>insert_newline</code></td><td>Insert newline char</td><td>insert: <code>&lt;C-j&gt;</code>, <code>&lt;ret&gt;</code></td></tr>
+<tr><td><code>insert_char_interactive</code></td><td>Insert an interactively-chosen char</td><td></td></tr>
+<tr><td><code>append_char_interactive</code></td><td>Append an interactively-chosen char</td><td></td></tr>
 <tr><td><code>delete_char_backward</code></td><td>Delete previous char</td><td>insert: <code>&lt;C-h&gt;</code>, <code>&lt;backspace&gt;</code>, <code>&lt;S-backspace&gt;</code></td></tr>
 <tr><td><code>delete_char_forward</code></td><td>Delete next char</td><td>insert: <code>&lt;C-d&gt;</code>, <code>&lt;del&gt;</code></td></tr>
 <tr><td><code>delete_word_backward</code></td><td>Delete previous word</td><td>insert: <code>&lt;C-w&gt;</code>, <code>&lt;A-backspace&gt;</code></td></tr>
@@ -529,6 +540,8 @@
 <tr><td><code>goto_prev_comment</code></td><td>Goto previous comment</td><td>normal: <code>[c</code>, select: <code>[c</code></td></tr>
 <tr><td><code>goto_next_test</code></td><td>Goto next test</td><td>normal: <code>]T</code>, select: <code>]T</code></td></tr>
 <tr><td><code>goto_prev_test</code></td><td>Goto previous test</td><td>normal: <code>[T</code>, select: <code>[T</code></td></tr>
+<tr><td><code>goto_next_xml_element</code></td><td>Goto next (X)HTML element</td><td>normal: <code>]x</code>, select: <code>]x</code></td></tr>
+<tr><td><code>goto_prev_xml_element</code></td><td>Goto previous (X)HTML element</td><td>normal: <code>[x</code>, select: <code>[x</code></td></tr>
 <tr><td><code>goto_next_entry</code></td><td>Goto next pairing</td><td>normal: <code>]e</code>, select: <code>]e</code></td></tr>
 <tr><td><code>goto_prev_entry</code></td><td>Goto previous pairing</td><td>normal: <code>[e</code>, select: <code>[e</code></td></tr>
 <tr><td><code>goto_next_paragraph</code></td><td>Goto next paragraph</td><td>normal: <code>]p</code>, select: <code>]p</code></td></tr>

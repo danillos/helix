@@ -162,6 +162,14 @@
                     <main>
                         <h2 id="themes"><a class="header" href="#themes">Themes</a></h2>
 <p>To use a theme add <code>theme = "&lt;name&gt;"</code> to the top of your <a href="./configuration.html"><code>config.toml</code></a> file, or select it during runtime using <code>:theme &lt;name&gt;</code>.</p>
+<p>Separate themes can be configured for light and dark modes. On terminals supporting <a href="https://github.com/contour-terminal/contour/blob/master/docs/vt-extensions/color-palette-update-notifications.md">mode 2031 dark/light detection</a>, the theme mode is detected from the terminal.</p>
+<pre><code class="language-toml">[theme]
+dark = "catppuccin_frappe"
+light = "catppuccin_latte"
+## Optional. Used if the terminal doesn't declare a preference.
+## Defaults to the theme set for `dark` if not specified.
+# fallback = "catppuccin_frappe"
+</code></pre>
 <h2 id="creating-a-theme"><a class="header" href="#creating-a-theme">Creating a theme</a></h2>
 <p>Create a file with the name of your theme as the file name (i.e <code>mytheme.toml</code>) and place it in your <code>themes</code> directory (i.e <code>~/.config/helix/themes</code> or <code>%AppData%\helix\themes</code> on Windows). The directory might have to be created beforehand.</p>
 <blockquote>
@@ -261,6 +269,12 @@ supported by your terminal emulator.</p>
 [palette]
 berry = "#2A2A4D"
 </code></pre>
+<h3 id="rainbow"><a class="header" href="#rainbow">Rainbow</a></h3>
+<p>The <code>rainbow</code> key is used for rainbow highlight for matching brackets.
+The key is a list of styles.</p>
+<pre><code class="language-toml">rainbow = ["#ff0000", "#ffa500", "#fff000", { fg = "#00ff00", modifiers = ["bold"] }]
+</code></pre>
+<p>Colors from the palette and modifiers may be used.</p>
 <h3 id="scopes"><a class="header" href="#scopes">Scopes</a></h3>
 <p>The following is a list of scopes available to use for styling:</p>
 <h4 id="syntax-highlighting"><a class="header" href="#syntax-highlighting">Syntax highlighting</a></h4>
@@ -414,7 +428,8 @@ berry = "#2A2A4D"
 <p><code>namespace</code></p>
 </li>
 <li>
-<p><code>special</code> - <code>derive</code> in Rust, etc.</p>
+<p><code>special</code> - <code>derive</code> in Rust, bolded query-match in pickers (includes file explorer), etc.
+See also <a href="https://github.com/helix-editor/helix/issues/2380">#2380</a></p>
 </li>
 <li>
 <p><code>markup</code></p>
@@ -544,6 +559,7 @@ berry = "#2A2A4D"
 <tr><td><code>ui.text.inactive</code></td><td>Same as <code>ui.text</code> but when the text is inactive (e.g. suggestions)</td></tr>
 <tr><td><code>ui.text.info</code></td><td>The key: command text in <code>ui.popup.info</code> boxes</td></tr>
 <tr><td><code>ui.text.directory</code></td><td>Directory names in prompt completion</td></tr>
+<tr><td><code>ui.text.symlink</code></td><td>Symlink names in prompt completion</td></tr>
 <tr><td><code>ui.virtual.ruler</code></td><td>Ruler columns (see the <a href="./configuration.html#editor-section"><code>editor.rulers</code> config</a>)</td></tr>
 <tr><td><code>ui.virtual.whitespace</code></td><td>Visible whitespace characters</td></tr>
 <tr><td><code>ui.virtual.indent-guide</code></td><td>Vertical indent width guides</td></tr>

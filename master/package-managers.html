@@ -164,14 +164,15 @@
 <ul>
 <li><a href="#linux">Linux</a>
 <ul>
-<li><a href="#ubuntudebian">Ubuntu/Debian</a></li>
-<li><a href="#ubuntu-ppa">Ubuntu (PPA)</a></li>
+<li><a href="#debian">Debian</a></li>
+<li><a href="#ubuntumint">Ubuntu/Mint</a></li>
 <li><a href="#fedorarhel">Fedora/RHEL</a></li>
 <li><a href="#arch-linux-extra">Arch Linux extra</a></li>
 <li><a href="#nixos">NixOS</a></li>
 <li><a href="#flatpak">Flatpak</a></li>
 <li><a href="#snap">Snap</a></li>
 <li><a href="#appimage">AppImage</a></li>
+<li><a href="#linux-homebrew-core">Linux Homebrew Core</a></li>
 </ul>
 </li>
 <li><a href="#macos">macOS</a>
@@ -192,16 +193,15 @@
 <p><a href="https://repology.org/project/helix-editor/versions"><img src="https://repology.org/badge/vertical-allrepos/helix-editor.svg" alt="Packaging status" /></a></p>
 <h2 id="linux"><a class="header" href="#linux">Linux</a></h2>
 <p>The following third party repositories are available:</p>
-<h3 id="ubuntudebian"><a class="header" href="#ubuntudebian">Ubuntu/Debian</a></h3>
-<p>Install the Debian package from the release page.</p>
+<h3 id="debian"><a class="header" href="#debian">Debian</a></h3>
+<pre><code class="language-sh">sudo apt install hx
+</code></pre>
+<p>If you are running a system older than Debian 13, follow the steps for
+<a href="#ubuntumint">Ubuntu/Mint</a>.</p>
+<h3 id="ubuntumint"><a class="header" href="#ubuntumint">Ubuntu/Mint</a></h3>
+<p>Install the Debian package <a href="https://github.com/helix-editor/helix/releases/latest">from the release page</a>.</p>
 <p>If you are running a system older than Ubuntu 22.04, Mint 21, or Debian 12, you can build the <code>.deb</code> file locally
 <a href="./building-from-source.html#building-the-debian-package">from source</a>.</p>
-<h3 id="ubuntu-ppa"><a class="header" href="#ubuntu-ppa">Ubuntu (PPA)</a></h3>
-<p>Add the <code>PPA</code> for Helix:</p>
-<pre><code class="language-sh">sudo add-apt-repository ppa:maveonair/helix-editor
-sudo apt update
-sudo apt install helix
-</code></pre>
 <h3 id="fedorarhel"><a class="header" href="#fedorarhel">Fedora/RHEL</a></h3>
 <pre><code class="language-sh">sudo dnf install helix
 </code></pre>
@@ -250,9 +250,15 @@ Download the official Helix AppImage from the <a href="https://github.com/helix-
 mv helix-*.AppImage "$HOME/.local/bin/hx"
 </code></pre>
 <p>and make sure <code>~/.local/bin</code> is in your <code>PATH</code>.</p>
+<h3 id="linux-homebrew-core"><a class="header" href="#linux-homebrew-core">Linux Homebrew Core</a></h3>
+<p>Checkout the <a href="#homebrew-core">macOS</a> instructions below.</p>
 <h2 id="macos"><a class="header" href="#macos">macOS</a></h2>
 <h3 id="homebrew-core"><a class="header" href="#homebrew-core">Homebrew Core</a></h3>
+<p>Install the latest release:</p>
 <pre><code class="language-sh">brew install helix
+</code></pre>
+<p>Or, install the latest nightly version:</p>
+<pre><code class="language-sh">brew install --HEAD helix
 </code></pre>
 <h3 id="macports"><a class="header" href="#macports">MacPorts</a></h3>
 <pre><code class="language-sh">sudo port install helix
