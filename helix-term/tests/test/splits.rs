@@ -261,3 +261,38 @@ async fn test_reload_all_with_split_jumplist() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_focus_preserving_mode_keeps_text_and_selections() -> anyhow::Result<()> {
+    use helix_view::{document::Mode, editor::Action};
+
+    let file = tempfile::NamedTempFile::new()?;
+    let mut app = helpers::AppBuilder::new()
+        .with_file(file.path(), None)
+        .with_input_text("original #[text|]#\n")
+        .build()?;
+    app.editor.open(file.path(), Action::VerticalSplit)?;
+    let views: Vec<_> = app.editor.tree.views().map(|(view, _)| view.id).collect();
+    assert_eq!(views.len(), 2);
+    assert_eq!(app.editor.documents().count(), 1);
+    for mode in [Mode::Normal, Mode::Insert, Mode::Select] {
+        app.editor.mode = mode;
+        let (view, doc) = helix_view::current_ref!(app.editor);
+        let text = doc.text().clone();
+        let selection = doc.selection(view.id).clone();
+        let source = view.id;
+        let destination = *views.iter().find(|id| **id != source).unwrap();
+        app.editor.focus_preserving_mode(destination);
+        assert_eq!(app.editor.mode(), mode);
+        let doc = app
+            .editor
+            .document(app.editor.tree.get(source).doc)
+            .unwrap();
+        assert_eq!(doc.text(), &text);
+        assert_eq!(doc.selection(source), &selection);
+        app.editor.focus_preserving_mode(source);
+        assert_eq!(app.editor.mode(), mode);
+    }
+    assert!(app.close().await.is_empty());
+    Ok(())
+}

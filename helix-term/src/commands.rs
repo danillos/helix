@@ -87,8 +87,8 @@ use std::{
 };
 
 use helix_stdx::Url;
-use once_cell::sync::Lazy;
 use serde::de::{self, Deserialize, Deserializer};
+use std::sync::LazyLock;
 
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{sinks, BinaryDetection, SearcherBuilder};
@@ -4936,7 +4936,7 @@ pub(crate) enum Paste {
     Cursor,
 }
 
-static LINE_ENDING_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\r\n|\r|\n").unwrap());
+static LINE_ENDING_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\r\n|\r|\n").unwrap());
 
 fn paste_impl(
     values: &[String],
@@ -5976,7 +5976,7 @@ fn transpose_view(cx: &mut Context) {
 /// Open a new split in the given direction specified by the action.
 ///
 /// Maintain the current view (both the cursor's position and view in document).
-fn split(editor: &mut Editor, action: Action) {
+pub(crate) fn split(editor: &mut Editor, action: Action) {
     let (view, doc) = current!(editor);
     let id = doc.id();
     let selection = doc.selection(view.id).clone();

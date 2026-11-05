@@ -3950,6 +3950,24 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         completer: SHELL_COMPLETER,
         signature: SHELL_SIGNATURE,
     },
+    #[cfg(unix)]
+    TypableCommand {
+        name: "rex-tool",
+        aliases: &[],
+        doc: "Open a tool through the Rex helpers with structured arguments.",
+        fun: crate::rex::launch_tool,
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (1, None), ..Signature::DEFAULT },
+    },
+    #[cfg(unix)]
+    TypableCommand {
+        name: "rex-pipe",
+        aliases: &[],
+        doc: "Transform one selection through a helper, preserving newer editor changes.",
+        fun: crate::rex::transform_selection,
+        completer: CommandCompleter::none(),
+        signature: Signature { positionals: (1, None), flags: &[Flag { name: "clipboard", doc: "Copy the accepted replacement to the clipboard", ..Flag::DEFAULT }], ..Signature::DEFAULT },
+    },
     TypableCommand {
         name: "pipe",
         aliases: &["|"],
@@ -4111,8 +4129,8 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
     }
 ];
 
-pub static TYPABLE_COMMAND_MAP: Lazy<HashMap<&'static str, &'static TypableCommand>> =
-    Lazy::new(|| {
+pub static TYPABLE_COMMAND_MAP: LazyLock<HashMap<&'static str, &'static TypableCommand>> =
+    LazyLock::new(|| {
         TYPABLE_COMMAND_LIST
             .iter()
             .flat_map(|cmd| {

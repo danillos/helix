@@ -2281,8 +2281,16 @@ impl Editor {
             return;
         }
 
-        // Reset mode to normal and ensure any pending changes are committed in the old document.
         self.enter_normal_mode();
+        self.focus_preserving_mode(view_id);
+    }
+
+    /// Changes views while preserving the editing mode and source selection.
+    pub fn focus_preserving_mode(&mut self, view_id: ViewId) {
+        if self.tree.focus == view_id {
+            return;
+        }
+
         let (view, doc) = current!(self);
         doc.append_changes_to_history(view);
         self.ensure_cursor_in_view(view_id);
