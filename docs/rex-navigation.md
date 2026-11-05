@@ -57,7 +57,7 @@ The companion Rex configuration routes `Cmd+1` through `Cmd+9` to Helix's buffer
 
 A buffer request uses `buffer:N` in place of a direction. It follows the same request-ID, cancellation, and expiry rules. A missing buffer or pending prompt stays inside Helix. The request never falls back to selecting a Rex tab after identifying Helix.
 
-`:rex-tool` passes parsed arguments to the dotfiles helper without a shell expansion step. The helper launches a new Rex tool pane with the originating session/block and an explicit working directory. `mise exec` selects the project's environment. Filenames and prompts remain separate arguments, including quotes and spaces.
+`:rex-tool` passes parsed arguments to the dotfiles helper without a shell expansion step. The helper launches a new Rex tool pane with the originating session/block and an explicit working directory. Project tools such as RSpec and Rails select their environment with `mise exec`; editor helpers run directly without resolving unrelated global tools. Filenames and prompts remain separate arguments, including quotes and spaces.
 
 `:rex-pipe` sends one selection to a helper. Before applying output, it checks the document revision, view, selection, mode, terminal focus, and pending input. Changing or closing that context discards the delayed result. The edit and its selection enter the document history together. `--clipboard` copies an accepted result after those checks. `HELIX_REX_HELPERS` can select a helper script when testing a staged dotfiles checkout.
 
@@ -65,4 +65,4 @@ A buffer request uses `buffer:N` in place of a direction. It follows the same re
 python3 contrib/test_rex_helpers.py --binary target/release/hx --dotfiles /path/to/dotfiles
 ```
 
-This check covers numbered buffers, literal arguments, delayed-result guards, initializer placeholders, and both YARD comment paths with the actual Helix configuration.
+This check covers numbered buffers, literal arguments, delayed-result guards, initializer placeholders, and both YARD comment paths with the actual Helix configuration. It uses a private terminal and a file-backed clipboard, so the test does not take desktop focus or replace the system clipboard.

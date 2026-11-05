@@ -21,11 +21,25 @@ if sys.argv[1]=='slow-upper':
  time.sleep(0.7)
 if sys.argv[1] in ['upper','slow-upper']: print(sys.stdin.read().upper(),end='')
 ''');helper.chmod(0o755)
+clipboard=workspace/'clipboard.bin';clipboard.write_bytes(b'')
+clipboard_helper=workspace/'clipboard.py'
+clipboard_helper.write_text("""import sys,os
+from pathlib import Path
+path=Path(os.environ['REX_HELPER_TEST_DIRECTORY'])/'clipboard.bin'
+if sys.argv[1]=='copy': path.write_bytes(sys.stdin.buffer.read())
+else: sys.stdout.buffer.write(path.read_bytes())
+""")
+fixture_config=workspace/'config.toml'
+configuration=(dotfiles/'.config/helix/config.toml').read_text()
+configuration+='\n[editor.clipboard-provider.custom]\n'
+for name,operation in [('yank','paste'),('paste','copy')]:
+ configuration+=name+' = { command = "/usr/bin/python3", args = '+json.dumps([str(clipboard_helper),operation])+' }\n'
+fixture_config.write_text(configuration)
 source=workspace/'first file.txt';source.write_text('Mixed text\n')
 other=workspace/'second file.txt';other.write_text('second\n')
 master,slave=pty.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',30,120,0,0))
 env=os.environ.copy();env.update(TERM='xterm-256color',REX_SESSION='session:helper-test',REX_BLOCK='block:helper-test',HELIX_REX_HELPERS=str(helper),REX_HELPER_TEST_DIRECTORY=str(workspace),REX_HELPER_REAL=str(dotfiles/'support/pipe.rb'))
-process=subprocess.Popen([binary,'--config',str(dotfiles/'.config/helix/config.toml'),str(source),str(other),'--log',str(workspace/'editor.log')],cwd=workspace,env=env,stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
+process=subprocess.Popen([binary,'--config',str(fixture_config),str(source),str(other),'--log',str(workspace/'editor.log')],cwd=workspace,env=env,stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
 os.close(slave);transcript=bytearray()
 def drain():
  while process.poll() is None:
@@ -47,7 +61,6 @@ def wait_for(predicate):
 def slow():
  (workspace/'started').unlink(missing_ok=True)
  keys('%');command('rex-pipe slow-upper');wait_for(lambda:(workspace/'started').exists())
-original_clipboard = subprocess.check_output(['/usr/bin/pbpaste'])
 try:
  endpoint=Path(env.get('XDG_CACHE_HOME',str(Path.home()/'.cache')))/'helix/rex'/f'{process.pid}.sock'
  wait_for(endpoint.exists)
@@ -95,17 +108,16 @@ try:
  command('open failures.txt');wait_for(lambda:request('buffer:6')['outcome']=='moved')
  keys(' cru');time.sleep(0.5);keys('\x13')
  assert failures.read_text()==expected,'Failing-test extraction changed the expected references'
- assert subprocess.check_output(['/usr/bin/pbpaste']).decode()==expected,'Accepted extraction was not copied'
- subprocess.run(['/usr/bin/pbcopy'],input=b'clipboard-sentinel',check=True)
+ assert clipboard.read_text()==expected,'Accepted extraction was not copied'
+ clipboard.write_bytes(b'clipboard-sentinel')
  (workspace/'started').unlink(missing_ok=True)
  keys('%');command('rex-pipe --clipboard slow-upper');wait_for(lambda:(workspace/'started').exists())
  keys('iNEW\x1b');time.sleep(0.8)
- assert subprocess.check_output(['/usr/bin/pbpaste'])==b'clipboard-sentinel','A stale result changed the clipboard'
+ assert clipboard.read_bytes()==b'clipboard-sentinel','A stale result changed the clipboard'
  print('PASS: failure extraction and clipboard results share the editor-context guard.')
  command('quit-all!');process.wait(timeout=3)
  print('PASS: numbered buffers, missing position, pending prompt, literal argv, helper edit, stale buffer/selection/prompt guards.')
 finally:
- subprocess.run(['/usr/bin/pbcopy'],input=original_clipboard,check=True)
  if process.poll() is None: process.terminate();process.wait(timeout=3)
  reader.join(timeout=1);os.close(master)
  (workspace/'transcript.vt').write_bytes(transcript)

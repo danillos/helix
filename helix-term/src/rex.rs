@@ -490,8 +490,7 @@ pub async fn cli(args: &[String]) -> Result<i32> {
 
 fn helper_command(arguments: Vec<String>) -> Result<tokio::process::Command> {
     let home = std::env::var_os("HOME").context("HOME is required for the Rex helpers")?;
-    let mut command = tokio::process::Command::new(helix_stdx::env::which("mise")?);
-    command.args(["exec", "--"]).arg(
+    let mut command = tokio::process::Command::new(
         std::env::var_os("HELIX_REX_HELPERS")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from(home).join(".dotfiles/support/pipe.rb")),
