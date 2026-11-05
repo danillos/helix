@@ -580,6 +580,7 @@ pub fn transform_selection(
     if event != crate::ui::PromptEvent::Validate {
         return Ok(());
     }
+    let copy_to_clipboard = args.has_flag("clipboard");
     let context = EditContext::capture(cx.editor);
     if context.selection.len() != 1 {
         bail!("Select one function or output region for this helper");
@@ -613,6 +614,12 @@ pub fn transform_selection(
                 if !context.matches(editor, compositor) {
                     editor.set_error("Helper result discarded because its editor context changed");
                     return;
+                }
+                if copy_to_clipboard {
+                    if let Err(error) = editor.registers.write('+', vec![output.clone()]) {
+                        editor.set_error(error.to_string());
+                        return;
+                    }
                 }
                 let scrolloff = editor.config().scrolloff;
                 let (view, doc) = helix_view::current!(editor);

@@ -59,7 +59,7 @@ A buffer request uses `buffer:N` in place of a direction. It follows the same re
 
 `:rex-tool` passes parsed arguments to the dotfiles helper without a shell expansion step. The helper launches a new Rex tool pane with the originating session/block and an explicit working directory. `mise exec` selects the project's environment. Filenames and prompts remain separate arguments, including quotes and spaces.
 
-`:rex-pipe` sends one selection to a helper. Before applying output, it checks the document revision, view, selection, mode, terminal focus, and pending input. Changing or closing that context discards the delayed result. The edit and its selection enter the document history together. `HELIX_REX_HELPERS` can select a helper script when testing a staged dotfiles checkout.
+`:rex-pipe` sends one selection to a helper. Before applying output, it checks the document revision, view, selection, mode, terminal focus, and pending input. Changing or closing that context discards the delayed result. The edit and its selection enter the document history together. `--clipboard` copies an accepted result after those checks. `HELIX_REX_HELPERS` can select a helper script when testing a staged dotfiles checkout.
 
 ```sh
 python3 contrib/test_rex_helpers.py --binary target/release/hx --dotfiles /path/to/dotfiles

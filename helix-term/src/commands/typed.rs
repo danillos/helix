@@ -3966,7 +3966,7 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         doc: "Transform one selection through a helper, preserving newer editor changes.",
         fun: crate::rex::transform_selection,
         completer: CommandCompleter::none(),
-        signature: Signature { positionals: (1, None), ..Signature::DEFAULT },
+        signature: Signature { positionals: (1, None), flags: &[Flag { name: "clipboard", doc: "Copy the accepted replacement to the clipboard", ..Flag::DEFAULT }], ..Signature::DEFAULT },
     },
     TypableCommand {
         name: "pipe",

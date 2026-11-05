@@ -47,6 +47,7 @@ def wait_for(predicate):
 def slow():
  (workspace/'started').unlink(missing_ok=True)
  keys('%');command('rex-pipe slow-upper');wait_for(lambda:(workspace/'started').exists())
+original_clipboard = subprocess.check_output(['/usr/bin/pbpaste'])
 try:
  endpoint=Path(env.get('XDG_CACHE_HOME',str(Path.home()/'.cache')))/'helix/rex'/f'{process.pid}.sock'
  wait_for(endpoint.exists)
@@ -68,6 +69,8 @@ try:
  slow();keys(':echo keep-this-prompt');time.sleep(0.8)
  assert request('buffer:2')['outcome']=='blocked';keys('\x1b');keys('\x13');assert source.read_text()==original
  slow();keys('h');time.sleep(0.8);keys('\x13');assert source.read_text()==original
+ slow();keys('i');time.sleep(0.8);keys('\x1b');keys('\x13');assert source.read_text()==original
+ command('vsplit');slow();command('quit');time.sleep(0.8);keys('\x13');assert source.read_text()==original
  params_file=workspace/'parameters.rb'
  params_file.write_text('class Example\n  def configure(user_items, options:)\n    user_items\n  end\nend\n')
  command('open parameters.rb');wait_for(lambda:request('buffer:3')['outcome']=='moved');keys('ggjgh crdp')
@@ -86,9 +89,23 @@ try:
  result=returns.read_text()
  assert '# @return [String]' in result,result
  print('PASS: native initializer placeholders, YARD parameter transformation, and YARD return macro.')
+ failures=workspace/'failures.txt'
+ expected='rspec ./spec/first_spec.rb:3\nrspec ./spec/second_spec.rb:5\n'
+ failures.write_text('RSpec failures\n'+expected+'finished\n')
+ command('open failures.txt');wait_for(lambda:request('buffer:6')['outcome']=='moved')
+ keys(' cru');time.sleep(0.5);keys('\x13')
+ assert failures.read_text()==expected,'Failing-test extraction changed the expected references'
+ assert subprocess.check_output(['/usr/bin/pbpaste']).decode()==expected,'Accepted extraction was not copied'
+ subprocess.run(['/usr/bin/pbcopy'],input=b'clipboard-sentinel',check=True)
+ (workspace/'started').unlink(missing_ok=True)
+ keys('%');command('rex-pipe --clipboard slow-upper');wait_for(lambda:(workspace/'started').exists())
+ keys('iNEW\x1b');time.sleep(0.8)
+ assert subprocess.check_output(['/usr/bin/pbpaste'])==b'clipboard-sentinel','A stale result changed the clipboard'
+ print('PASS: failure extraction and clipboard results share the editor-context guard.')
  command('quit-all!');process.wait(timeout=3)
  print('PASS: numbered buffers, missing position, pending prompt, literal argv, helper edit, stale buffer/selection/prompt guards.')
 finally:
+ subprocess.run(['/usr/bin/pbcopy'],input=original_clipboard,check=True)
  if process.poll() is None: process.terminate();process.wait(timeout=3)
  reader.join(timeout=1);os.close(master)
  (workspace/'transcript.vt').write_bytes(transcript)
