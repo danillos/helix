@@ -20,6 +20,8 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--binary", required=True, type=Path)
 binary = str(parser.parse_args().binary.resolve())
+capability = json.loads(subprocess.check_output([binary, "--rex-navigate", "probe"], text=True))
+assert capability == {"protocol": 1}, capability
 session = "session:rex-prototype"
 block = "block:rex-prototype"
 workspace = Path(tempfile.mkdtemp(prefix="helix-rex-prototype-"))

@@ -19,7 +19,7 @@ The terminal check uses temporary files and a separate editor process. It covers
 
 ## Request a move
 
-The Rex Lua action runs this helper on the host that owns the Helix pane:
+The Rex Lua action checks `hx --rex-navigate probe` before sending a move. A helper from an older build fails that read-only check and leaves Rex navigation available. It runs the move helper on the host that owns the Helix pane:
 
 ```text
 hx --rex-navigate PID DIRECTION SESSION BLOCK
@@ -46,3 +46,7 @@ Normal exit removes the process socket. Starting another integrated editor remov
 The companion dotfiles module registers the existing directional aliases and queues the original `pane.focus` client action for an outer handoff. It preserves the action's wrapping argument. Resize mode and floating-terminal bindings remain in the existing Rex configuration.
 
 For a pane on another host, the originating Rex action calls `helix_navigation_request` on that host's Rex server. That action inspects the foreground process and runs its local helper. It returns the result to the originating client, which owns the outer pane-focus action. Both hosts need the matching Lua module and integrated executable.
+
+## Installed runtime pairs
+
+An explicit `HELIX_RUNTIME` takes precedence over the user-config runtime and Cargo's development path. The installer launcher selects one immutable build directory and runs its binary with that directory's runtime. Changing the selected build affects new processes; existing processes keep their selected runtime. The global user-config runtime link can remain available to older editors.

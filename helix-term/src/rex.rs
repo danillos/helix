@@ -412,6 +412,10 @@ async fn request(pid: u32, session: &str, block: &str, direction: Direction) -> 
 }
 
 pub async fn cli(args: &[String]) -> Result<i32> {
+    if matches!(args, [operation] if operation == "probe") {
+        println!("{}", serde_json::json!({ "protocol": PROTOCOL }));
+        return Ok(0);
+    }
     if args.len() != 4 {
         bail!("--rex-navigate requires PID DIRECTION SESSION BLOCK");
     }
