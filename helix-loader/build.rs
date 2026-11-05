@@ -75,8 +75,17 @@ fn main() {
     else {
         return;
     };
-    let head_ref = Path::new(&git_dir).join(head_ref);
-    if head_ref.exists() {
-        println!("cargo:rerun-if-changed={}", head_ref.display());
-    }
+    // Linked worktrees keep branch refs in the common Git directory.
+    // Resolve the path through Git so commits invalidate the build version.
+    let Some(head_ref_path): Option<String> = Command::new("git")
+        .args(["rev-parse", "--git-path", &head_ref])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|x| String::from_utf8(x.stdout).ok())
+        .map(|x| x.trim().to_string())
+    else {
+        return;
+    };
+    println!("cargo:rerun-if-changed={head_ref_path}");
 }
