@@ -77,6 +77,8 @@ struct Hello {
     instance: String,
     session: String,
     block: String,
+    #[serde(default)]
+    buffer_navigation: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,23 +90,35 @@ enum Request {
         direction: Direction,
         deadline_ms: u64,
     },
+    Buffer {
+        instance: String,
+        id: String,
+        index: usize,
+        deadline_ms: u64,
+    },
     Cancel {
         instance: String,
         id: String,
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Action {
+    Navigate(Direction),
+    Buffer(usize),
+}
+
 struct Pending {
-    direction: Option<Direction>,
+    action: Option<Action>,
     expires: Instant,
     result: Mutex<Option<Response>>,
     ready: Notify,
 }
 
 impl Pending {
-    fn new(direction: Option<Direction>, lifetime: Duration) -> Self {
+    fn new(action: Option<Action>, lifetime: Duration) -> Self {
         Self {
-            direction,
+            action,
             expires: Instant::now() + lifetime,
             result: Mutex::new(None),
             ready: Notify::new(),
@@ -229,6 +243,7 @@ pub fn start() -> Result<Option<Bridge>> {
         instance: format!("{}-{}", std::process::id(), unix_ms()),
         session,
         block,
+        buffer_navigation: true,
     };
     let requests: Requests = Arc::default();
     let task = tokio::spawn(async move {
@@ -283,7 +298,7 @@ async fn read_json<T: serde::de::DeserializeOwned>(stream: &mut UnixStream) -> R
 async fn serve(mut stream: UnixStream, hello: Hello, requests: Requests) -> Result<()> {
     write_json(&mut stream, &hello).await?;
     let request: Request = read_json(&mut stream).await?;
-    let response = match request {
+    let (instance, id, action, deadline_ms) = match request {
         Request::Cancel { instance, id } => {
             if instance != hello.instance {
                 bail!("Helix process instance changed");
@@ -295,50 +310,54 @@ async fn serve(mut stream: UnixStream, hello: Hello, requests: Requests) -> Resu
                     .or_insert_with(|| Arc::new(Pending::new(None, Duration::ZERO)))
                     .clone()
             };
-            pending.cancel()
+            return write_json(&mut stream, &pending.cancel()).await;
         }
         Request::Navigate {
             instance,
             id,
             direction,
             deadline_ms,
-        } => {
-            if instance != hello.instance || id.len() > 128 {
-                bail!("Invalid navigation request");
-            }
-            let lifetime =
-                Duration::from_millis(deadline_ms.saturating_sub(unix_ms())).min(REQUEST_LIFETIME);
-            let (pending, created) = {
-                let mut requests = requests.lock().unwrap();
-                requests.retain(|_, p| p.expires.elapsed().as_secs() < 60);
-                match requests.get(&id) {
-                    Some(p) => {
-                        if p.direction.is_some_and(|previous| previous != direction) {
-                            bail!("Request ID reused with another direction");
-                        }
-                        (p.clone(), false)
-                    }
-                    None => {
-                        let pending = Arc::new(Pending::new(Some(direction), lifetime));
-                        requests.insert(id, pending.clone());
-                        (pending, true)
-                    }
+        } => (instance, id, Action::Navigate(direction), deadline_ms),
+        Request::Buffer {
+            instance,
+            id,
+            index,
+            deadline_ms,
+        } => (instance, id, Action::Buffer(index), deadline_ms),
+    };
+    if instance != hello.instance || id.len() > 128 {
+        bail!("Invalid editor request");
+    }
+    let lifetime =
+        Duration::from_millis(deadline_ms.saturating_sub(unix_ms())).min(REQUEST_LIFETIME);
+    let (pending, created) = {
+        let mut requests = requests.lock().unwrap();
+        requests.retain(|_, p| p.expires.elapsed().as_secs() < 60);
+        match requests.get(&id) {
+            Some(p) => {
+                if p.action.is_some_and(|previous| previous != action) {
+                    bail!("Request ID reused with another action");
                 }
-            };
-            if created {
-                let callback = pending.clone();
-                job::dispatch(move |editor, compositor| {
-                    callback.apply(|| navigate(editor, compositor, direction));
-                })
-                .await;
+                (p.clone(), false)
             }
-            pending.response().await
+            None => {
+                let pending = Arc::new(Pending::new(Some(action), lifetime));
+                requests.insert(id, pending.clone());
+                (pending, true)
+            }
         }
     };
-    write_json(&mut stream, &response).await
+    if created {
+        let callback = pending.clone();
+        job::dispatch(move |editor, compositor| {
+            callback.apply(|| apply_action(editor, compositor, action));
+        })
+        .await;
+    }
+    write_json(&mut stream, &pending.response().await).await
 }
 
-fn navigate(editor: &mut Editor, compositor: &mut Compositor, direction: Direction) -> Response {
+fn apply_action(editor: &mut Editor, compositor: &mut Compositor, action: Action) -> Response {
     let overlay = compositor.layer_count() != 1;
     let Some(view) = compositor.find::<EditorView>() else {
         return Response::new(Outcome::Blocked);
@@ -349,6 +368,26 @@ fn navigate(editor: &mut Editor, compositor: &mut Compositor, direction: Directi
     if overlay || view.rex_input_pending() || editor.count.is_some() {
         return Response::new(Outcome::Blocked);
     }
+    if let Action::Buffer(index) = action {
+        let document = index
+            .checked_sub(1)
+            .and_then(|index| editor.documents().nth(index))
+            .map(|doc| doc.id());
+        let Some(document) = document else {
+            editor.set_error(format!("No Helix buffer at position {index}"));
+            return Response::new(Outcome::Blocked);
+        };
+        let before = editor.tree.get(editor.tree.focus).doc;
+        editor.switch(document, helix_view::editor::Action::Replace);
+        return Response {
+            outcome: Outcome::Moved,
+            before: Some(format!("{before:?}")),
+            after: Some(format!("{document:?}")),
+        };
+    }
+    let Action::Navigate(direction) = action else {
+        unreachable!()
+    };
     let before = editor.tree.focus;
     if let Some(next) = editor
         .tree
@@ -377,16 +416,28 @@ async fn connect(pid: u32, session: &str, block: &str) -> Result<(UnixStream, He
     Ok((stream, hello))
 }
 
-async fn request(pid: u32, session: &str, block: &str, direction: Direction) -> Response {
+async fn request(pid: u32, session: &str, block: &str, action: Action) -> Response {
     let Ok((mut stream, hello)) = connect(pid, session, block).await else {
         return Response::new(Outcome::Unavailable);
     };
     let id = format!("{}-{}", std::process::id(), unix_ms());
-    let request = Request::Navigate {
-        instance: hello.instance.clone(),
-        id: id.clone(),
-        direction,
-        deadline_ms: unix_ms() + REQUEST_LIFETIME.as_millis() as u64,
+    if matches!(action, Action::Buffer(_)) && !hello.buffer_navigation {
+        return Response::new(Outcome::Unavailable);
+    }
+    let deadline_ms = unix_ms() + REQUEST_LIFETIME.as_millis() as u64;
+    let request = match action {
+        Action::Navigate(direction) => Request::Navigate {
+            instance: hello.instance.clone(),
+            id: id.clone(),
+            direction,
+            deadline_ms,
+        },
+        Action::Buffer(index) => Request::Buffer {
+            instance: hello.instance.clone(),
+            id: id.clone(),
+            index,
+            deadline_ms,
+        },
     };
     if write_json(&mut stream, &request).await.is_ok() {
         if let Ok(response) = read_json(&mut stream).await {
@@ -416,15 +467,172 @@ pub async fn cli(args: &[String]) -> Result<i32> {
         println!("{}", serde_json::json!({ "protocol": PROTOCOL }));
         return Ok(0);
     }
+    if matches!(args, [operation] if operation == "probe-buffer") {
+        println!("{}", serde_json::json!({ "buffer_navigation": true }));
+        return Ok(0);
+    }
     if args.len() != 4 {
         bail!("--rex-navigate requires PID DIRECTION SESSION BLOCK");
     }
     let pid = args[0].parse().context("Invalid Helix process ID")?;
-    let direction = serde_json::from_value(serde_json::Value::String(args[1].clone()))
-        .context("Invalid navigation direction")?;
-    let response = request(pid, &args[2], &args[3], direction).await;
+    let action = if let Some(index) = args[1].strip_prefix("buffer:") {
+        Action::Buffer(index.parse().context("Invalid buffer position")?)
+    } else {
+        Action::Navigate(
+            serde_json::from_value(serde_json::Value::String(args[1].clone()))
+                .context("Invalid navigation direction")?,
+        )
+    };
+    let response = request(pid, &args[2], &args[3], action).await;
     println!("{}", serde_json::to_string(&response)?);
     Ok(0)
+}
+
+fn helper_command(arguments: Vec<String>) -> Result<tokio::process::Command> {
+    let home = std::env::var_os("HOME").context("HOME is required for the Rex helpers")?;
+    let mut command = tokio::process::Command::new(helix_stdx::env::which("mise")?);
+    command.args(["exec", "--"]).arg(
+        std::env::var_os("HELIX_REX_HELPERS")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(home).join(".dotfiles/support/pipe.rb")),
+    );
+    command
+        .args(arguments)
+        .current_dir(helix_stdx::env::current_working_dir());
+    command.kill_on_drop(true);
+    Ok(command)
+}
+
+pub fn launch_tool(
+    cx: &mut crate::compositor::Context,
+    args: helix_core::command_line::Args,
+    event: crate::ui::PromptEvent,
+) -> Result<()> {
+    if event != crate::ui::PromptEvent::Validate {
+        return Ok(());
+    }
+    let mut command = helper_command(args.iter().map(|arg| arg.to_string()).collect())?;
+    command.stdin(std::process::Stdio::null());
+    cx.jobs.callback(async move {
+        let output = command.output().await?;
+        if !output.status.success() {
+            bail!(
+                "Rex tool: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+        Ok(job::Callback::Editor(Box::new(|editor| {
+            editor.set_status("Rex tool opened")
+        })))
+    });
+    Ok(())
+}
+
+#[derive(Clone)]
+struct EditContext {
+    view: helix_view::ViewId,
+    document: helix_view::DocumentId,
+    version: i32,
+    mode: helix_view::document::Mode,
+    selection: helix_core::Selection,
+}
+
+impl EditContext {
+    fn capture(editor: &Editor) -> Self {
+        let view = editor.tree.get(editor.tree.focus);
+        let doc = editor.document(view.doc).unwrap();
+        Self {
+            view: view.id,
+            document: doc.id(),
+            version: doc.version(),
+            mode: editor.mode,
+            selection: doc.selection(view.id).clone(),
+        }
+    }
+
+    fn matches(&self, editor: &Editor, compositor: &mut Compositor) -> bool {
+        let Some(view) = editor.tree.try_get(self.view) else {
+            return false;
+        };
+        let Some(doc) = editor.document(self.document) else {
+            return false;
+        };
+        let unobstructed = compositor.layer_count() == 1
+            && compositor
+                .find::<EditorView>()
+                .is_some_and(|view| view.rex_terminal_focused() && !view.rex_input_pending());
+        unobstructed
+            && editor.mode == self.mode
+            && editor.count.is_none()
+            && editor.tree.focus == self.view
+            && view.doc == self.document
+            && doc.version() == self.version
+            && doc.selection(self.view) == &self.selection
+    }
+}
+
+pub fn transform_selection(
+    cx: &mut crate::compositor::Context,
+    args: helix_core::command_line::Args,
+    event: crate::ui::PromptEvent,
+) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+    if event != crate::ui::PromptEvent::Validate {
+        return Ok(());
+    }
+    let context = EditContext::capture(cx.editor);
+    if context.selection.len() != 1 {
+        bail!("Select one function or output region for this helper");
+    }
+    let doc = cx.editor.document(context.document).unwrap();
+    let input = context
+        .selection
+        .primary()
+        .slice(doc.text().slice(..))
+        .to_string();
+    let mut command = helper_command(args.iter().map(|arg| arg.to_string()).collect())?;
+    command
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    cx.jobs.callback(async move {
+        let mut child = command.spawn()?;
+        let mut stdin = child.stdin.take().unwrap();
+        let writer = tokio::spawn(async move { stdin.write_all(input.as_bytes()).await });
+        let output = child.wait_with_output().await?;
+        writer.await??;
+        if !output.status.success() {
+            bail!(
+                "Helix helper: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+        let output = String::from_utf8(output.stdout)?;
+        Ok(job::Callback::EditorCompositor(Box::new(
+            move |editor, compositor| {
+                if !context.matches(editor, compositor) {
+                    editor.set_error("Helper result discarded because its editor context changed");
+                    return;
+                }
+                let scrolloff = editor.config().scrolloff;
+                let (view, doc) = helix_view::current!(editor);
+                let range = context.selection.primary();
+                let selection = helix_core::Selection::single(
+                    range.from(),
+                    range.from() + output.chars().count(),
+                );
+                let transaction = helix_core::Transaction::change(
+                    doc.text(),
+                    [(range.from(), range.to(), Some(output.into()))].into_iter(),
+                )
+                .with_selection(selection);
+                doc.apply(&transaction, view.id);
+                doc.append_changes_to_history(view);
+                view.ensure_cursor_in_view(doc, scrolloff);
+            },
+        )))
+    });
+    Ok(())
 }
 
 #[cfg(test)]
@@ -454,7 +662,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancellation_fences_a_delayed_editor_callback() {
-        let pending = Pending::new(Some(Direction::Right), REQUEST_LIFETIME);
+        let pending = Pending::new(Some(Action::Navigate(Direction::Right)), REQUEST_LIFETIME);
         assert_eq!(pending.cancel().outcome, Outcome::NotApplied);
         pending.apply(|| panic!("A cancelled request must not reach the editor"));
         assert_eq!(pending.response().await.outcome, Outcome::NotApplied);
@@ -462,7 +670,7 @@ mod tests {
 
     #[tokio::test]
     async fn expired_request_cannot_change_editor_focus() {
-        let pending = Pending::new(Some(Direction::Right), Duration::ZERO);
+        let pending = Pending::new(Some(Action::Navigate(Direction::Right)), Duration::ZERO);
         pending.apply(|| panic!("An expired request must not reach the editor"));
         assert_eq!(pending.response().await.outcome, Outcome::NotApplied);
     }
@@ -470,7 +678,7 @@ mod tests {
     #[tokio::test]
     async fn duplicate_or_cancel_after_a_move_returns_the_committed_result() {
         let calls = AtomicUsize::new(0);
-        let pending = Pending::new(Some(Direction::Right), REQUEST_LIFETIME);
+        let pending = Pending::new(Some(Action::Navigate(Direction::Right)), REQUEST_LIFETIME);
         pending.apply(|| {
             calls.fetch_add(1, Ordering::SeqCst);
             Response::new(Outcome::Moved)
@@ -483,7 +691,10 @@ mod tests {
 
     #[tokio::test]
     async fn an_unresponsive_editor_returns_a_confirmed_cancellation() {
-        let pending = Pending::new(Some(Direction::Left), Duration::from_millis(1));
+        let pending = Pending::new(
+            Some(Action::Navigate(Direction::Left)),
+            Duration::from_millis(1),
+        );
         assert_eq!(pending.response().await.outcome, Outcome::NotApplied);
         pending.apply(|| panic!("A timed out request must stay cancelled"));
     }

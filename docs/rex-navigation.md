@@ -50,3 +50,19 @@ For a pane on another host, the originating Rex action calls `helix_navigation_r
 ## Installed runtime pairs
 
 An explicit `HELIX_RUNTIME` takes precedence over the user-config runtime and Cargo's development path. The installer launcher selects one immutable build directory and runs its binary with that directory's runtime. Changing the selected build affects new processes; existing processes keep their selected runtime. The global user-config runtime link can remain available to older editors.
+
+## Numbered buffers and editor helpers
+
+The companion Rex configuration routes `Cmd+1` through `Cmd+9` to Helix's bufferline positions while Helix has focus. Outside Helix, Rex keeps numbered terminal-tab selection. `hx --rex-navigate probe-buffer` checks the helper; the socket handshake's `buffer_navigation` flag checks the running editor. An older editor retains view navigation but needs a restart for numbered buffers.
+
+A buffer request uses `buffer:N` in place of a direction. It follows the same request-ID, cancellation, and expiry rules. A missing buffer or pending prompt stays inside Helix. The request never falls back to selecting a Rex tab after identifying Helix.
+
+`:rex-tool` passes parsed arguments to the dotfiles helper without a shell expansion step. The helper launches a new Rex tool pane with the originating session/block and an explicit working directory. `mise exec` selects the project's environment. Filenames and prompts remain separate arguments, including quotes and spaces.
+
+`:rex-pipe` sends one selection to a helper. Before applying output, it checks the document revision, view, selection, mode, terminal focus, and pending input. Changing or closing that context discards the delayed result. The edit and its selection enter the document history together. `HELIX_REX_HELPERS` can select a helper script when testing a staged dotfiles checkout.
+
+```sh
+python3 contrib/test_rex_helpers.py --binary target/release/hx --dotfiles /path/to/dotfiles
+```
+
+This check covers numbered buffers, literal arguments, delayed-result guards, initializer placeholders, and both YARD comment paths with the actual Helix configuration.
