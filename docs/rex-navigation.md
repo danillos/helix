@@ -66,3 +66,15 @@ python3 contrib/test_rex_helpers.py --binary target/release/hx --dotfiles /path/
 ```
 
 This check covers numbered buffers, literal arguments, delayed-result guards, initializer placeholders, and both YARD comment paths with the actual Helix configuration. It uses a private terminal and a file-backed clipboard, so the test does not take desktop focus or replace the system clipboard.
+
+## Create editor splits
+
+Inside Helix, Rex routes `Cmd+d` to a right-hand editor split and `Cmd+Shift+d` to a split below. Outside Helix, Rex retains its existing terminal-pane split action. `hx --rex-navigate probe-split` and the socket handshake's `split_creation` flag identify this capability.
+
+The request form is `split:right` or `split:down`. It uses the same request IDs and cancellation fencing as navigation, so a repeated or expired request cannot create an extra view. The bridge calls Helix's native split operation, copying the current buffer's selection and scroll position and entering Normal mode. Pending input or terminal focus loss prevents creation. An older running editor needs reopening; its split request does not fall back to creating a Rex pane.
+
+```sh
+python3 contrib/test_rex_splits.py --binary target/release/hx
+```
+
+The private-terminal check covers right/down geometry and native behavior from Normal, Insert, and Select modes. It also checks undo, duplicate IDs, expiry, pending input, and terminal focus loss.

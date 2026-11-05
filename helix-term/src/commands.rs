@@ -5976,7 +5976,7 @@ fn transpose_view(cx: &mut Context) {
 /// Open a new split in the given direction specified by the action.
 ///
 /// Maintain the current view (both the cursor's position and view in document).
-fn split(editor: &mut Editor, action: Action) {
+pub(crate) fn split(editor: &mut Editor, action: Action) {
     let (view, doc) = current!(editor);
     let id = doc.id();
     let selection = doc.selection(view.id).clone();

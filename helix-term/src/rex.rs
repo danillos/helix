@@ -71,6 +71,22 @@ impl Direction {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum SplitDirection {
+    Right,
+    Down,
+}
+
+impl SplitDirection {
+    fn editor_action(self) -> helix_view::editor::Action {
+        match self {
+            Self::Right => helix_view::editor::Action::VerticalSplit,
+            Self::Down => helix_view::editor::Action::HorizontalSplit,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Hello {
     protocol: u32,
@@ -79,6 +95,8 @@ struct Hello {
     block: String,
     #[serde(default)]
     buffer_navigation: bool,
+    #[serde(default)]
+    split_creation: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -96,6 +114,12 @@ enum Request {
         index: usize,
         deadline_ms: u64,
     },
+    Split {
+        instance: String,
+        id: String,
+        direction: SplitDirection,
+        deadline_ms: u64,
+    },
     Cancel {
         instance: String,
         id: String,
@@ -106,6 +130,7 @@ enum Request {
 enum Action {
     Navigate(Direction),
     Buffer(usize),
+    Split(SplitDirection),
 }
 
 struct Pending {
@@ -244,6 +269,7 @@ pub fn start() -> Result<Option<Bridge>> {
         session,
         block,
         buffer_navigation: true,
+        split_creation: true,
     };
     let requests: Requests = Arc::default();
     let task = tokio::spawn(async move {
@@ -324,6 +350,12 @@ async fn serve(mut stream: UnixStream, hello: Hello, requests: Requests) -> Resu
             index,
             deadline_ms,
         } => (instance, id, Action::Buffer(index), deadline_ms),
+        Request::Split {
+            instance,
+            id,
+            direction,
+            deadline_ms,
+        } => (instance, id, Action::Split(direction), deadline_ms),
     };
     if instance != hello.instance || id.len() > 128 {
         bail!("Invalid editor request");
@@ -367,6 +399,15 @@ fn apply_action(editor: &mut Editor, compositor: &mut Compositor, action: Action
     }
     if overlay || view.rex_input_pending() || editor.count.is_some() {
         return Response::new(Outcome::Blocked);
+    }
+    if let Action::Split(direction) = action {
+        let before = editor.tree.focus;
+        crate::commands::split(editor, direction.editor_action());
+        return Response {
+            outcome: Outcome::Moved,
+            before: Some(format!("{before:?}")),
+            after: Some(format!("{:?}", editor.tree.focus)),
+        };
     }
     if let Action::Buffer(index) = action {
         let document = index
@@ -424,6 +465,9 @@ async fn request(pid: u32, session: &str, block: &str, action: Action) -> Respon
     if matches!(action, Action::Buffer(_)) && !hello.buffer_navigation {
         return Response::new(Outcome::Unavailable);
     }
+    if matches!(action, Action::Split(_)) && !hello.split_creation {
+        return Response::new(Outcome::Unavailable);
+    }
     let deadline_ms = unix_ms() + REQUEST_LIFETIME.as_millis() as u64;
     let request = match action {
         Action::Navigate(direction) => Request::Navigate {
@@ -436,6 +480,12 @@ async fn request(pid: u32, session: &str, block: &str, action: Action) -> Respon
             instance: hello.instance.clone(),
             id: id.clone(),
             index,
+            deadline_ms,
+        },
+        Action::Split(direction) => Request::Split {
+            instance: hello.instance.clone(),
+            id: id.clone(),
+            direction,
             deadline_ms,
         },
     };
@@ -471,12 +521,21 @@ pub async fn cli(args: &[String]) -> Result<i32> {
         println!("{}", serde_json::json!({ "buffer_navigation": true }));
         return Ok(0);
     }
+    if matches!(args, [operation] if operation == "probe-split") {
+        println!("{}", serde_json::json!({ "split_creation": true }));
+        return Ok(0);
+    }
     if args.len() != 4 {
         bail!("--rex-navigate requires PID DIRECTION SESSION BLOCK");
     }
     let pid = args[0].parse().context("Invalid Helix process ID")?;
     let action = if let Some(index) = args[1].strip_prefix("buffer:") {
         Action::Buffer(index.parse().context("Invalid buffer position")?)
+    } else if let Some(direction) = args[1].strip_prefix("split:") {
+        Action::Split(
+            serde_json::from_value(serde_json::Value::String(direction.to_owned()))
+                .context("Invalid split direction")?,
+        )
     } else {
         Action::Navigate(
             serde_json::from_value(serde_json::Value::String(args[1].clone()))
@@ -645,6 +704,17 @@ pub fn transform_selection(
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn an_older_bridge_does_not_advertise_split_creation() {
+        let hello: Hello = serde_json::from_value(serde_json::json!({
+            "protocol": 1, "instance": "older", "session": "session:test",
+            "block": "block:test", "buffer_navigation": true
+        }))
+        .unwrap();
+        assert!(hello.buffer_navigation);
+        assert!(!hello.split_creation);
+    }
 
     #[test]
     fn crash_cleanup_preserves_live_endpoints_and_other_files() {
