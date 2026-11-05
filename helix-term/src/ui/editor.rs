@@ -70,6 +70,20 @@ impl EditorView {
         }
     }
 
+    #[cfg(unix)]
+    pub(crate) fn rex_terminal_focused(&self) -> bool {
+        self.terminal_focused
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn rex_input_pending(&self) -> bool {
+        !self.keymaps.pending().is_empty()
+            || self.keymaps.sticky().is_some()
+            || self.on_next_key.is_some()
+            || !self.pseudo_pending.is_empty()
+            || self.completion.is_some()
+    }
+
     pub fn spinners_mut(&mut self) -> &mut ProgressSpinners {
         &mut self.spinners
     }
