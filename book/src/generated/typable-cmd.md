@@ -84,6 +84,8 @@
 | `:log-open` | Open the helix log file. |
 | `:insert-output` | Run shell command, inserting output before each selection. |
 | `:append-output` | Run shell command, appending output after each selection. |
+| `:run-program` | Run a program asynchronously with structured arguments. Use -- before the program. |
+| `:pipe-program` | Pipe one selection to a program, discarding the result if its editor context changes. |
 | `:pipe`, `:\|` | Pipe each selection to the shell command. |
 | `:pipe-to` | Pipe each selection to the shell command, ignoring output. |
 | `:run-shell-command`, `:sh`, `:!` | Run a shell command |
