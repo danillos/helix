@@ -6,13 +6,13 @@ pub mod args;
 pub mod commands;
 pub mod compositor;
 pub mod config;
+#[cfg(unix)]
+pub mod control;
 pub mod events;
 pub mod health;
 pub mod job;
 pub mod keymap;
 pub mod logging;
-#[cfg(unix)]
-pub mod rex;
 pub mod ui;
 
 #[cfg(not(windows))]

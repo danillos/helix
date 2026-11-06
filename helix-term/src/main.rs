@@ -27,8 +27,8 @@ async fn main_impl() -> Result<i32> {
     let args = Args::parse_args().context("could not parse arguments")?;
 
     #[cfg(unix)]
-    if let Some(request) = &args.rex_navigation {
-        return helix_term::rex::cli(request).await;
+    if let Some(request) = &args.control {
+        return helix_term::control::cli(request).await;
     }
 
     helix_loader::initialize_config_file(args.config_file.clone());
@@ -63,8 +63,8 @@ FLAGS:
     --log <file>                   Specify a file to use for logging
                                    (default file: {})
     -V, --version                  Print version information
-    --rex-navigate PID DIR SESSION BLOCK
-                                   Navigate an integrated Helix process for Rex (Unix only)
+    --control PID OPERATION CONTEXT
+                                   Control an integrated Helix process (Unix only)
     --vsplit                       Split all given files vertically into different windows
     --hsplit                       Split all given files horizontally into different windows
     -w, --working-dir <path>       Specify an initial working directory
@@ -154,8 +154,8 @@ FLAGS:
     let mut app = Application::new(args, config, lang_loader, workspace_trust)
         .context("unable to start Helix")?;
     #[cfg(unix)]
-    let _rex_bridge = helix_term::rex::start().unwrap_or_else(|error| {
-        log::warn!("Rex navigation unavailable: {error:#}");
+    let _control_bridge = helix_term::control::start().unwrap_or_else(|error| {
+        log::warn!("Editor control unavailable: {error:#}");
         None
     });
     let mut events = app.event_stream();

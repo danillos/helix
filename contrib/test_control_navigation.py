@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the Rex bridge in a temporary Helix terminal without changing user files."""
+"""Exercise the editor control endpoint in a temporary Helix terminal without changing user files."""
 
 import argparse
 import fcntl
@@ -20,19 +20,19 @@ import time
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--binary", required=True, type=Path)
 binary = str(parser.parse_args().binary.resolve())
-capability = json.loads(subprocess.check_output([binary, "--rex-navigate", "probe"], text=True))
+capability = json.loads(subprocess.check_output([binary, "--control", "probe"], text=True))
 assert capability == {"protocol": 1}, capability
-session = "session:rex-prototype"
-block = "block:rex-prototype"
-workspace = Path(tempfile.mkdtemp(prefix="helix-rex-prototype-"))
+session = "test-editor-context"
+workspace = Path(tempfile.mkdtemp(prefix="helix-control-"))
+(workspace / "config.toml").write_text("")
 source = workspace / "same file.txt"
 source.write_text("original text\n")
 master, slave = pty.openpty()
 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 100, 0, 0))
 environment = os.environ.copy()
-environment.update(TERM="xterm-256color", REX_SESSION=session, REX_BLOCK=block)
+environment.update(TERM="xterm-256color", HELIX_CONTROL_CONTEXT=session)
 process = subprocess.Popen(
-    [binary, str(source), "--log", str(workspace / "editor.log")],
+    [binary, "--config", str(workspace / "config.toml"), str(source), "--log", str(workspace / "editor.log")],
     cwd=workspace,
     env=environment,
     stdin=slave,
@@ -42,7 +42,7 @@ process = subprocess.Popen(
 )
 os.close(slave)
 cache = Path(environment.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
-endpoint = cache / "helix/rex" / f"{process.pid}.sock"
+endpoint = cache / "helix/control" / f"{process.pid}.sock"
 transcript = bytearray()
 
 
@@ -76,7 +76,7 @@ def navigate(direction):
     start = time.monotonic()
     response = json.loads(
         subprocess.check_output(
-            [binary, "--rex-navigate", str(process.pid), direction, session, block],
+            [binary, "--control", str(process.pid), direction, session],
             text=True,
             timeout=3,
         )
@@ -105,6 +105,10 @@ try:
             break
         time.sleep(0.02)
     assert endpoint.exists(), transcript[-1000:]
+    discovered = json.loads(subprocess.check_output([binary, "--control", "locate", session], text=True))
+    assert [entry["pid"] for entry in discovered] == [process.pid]
+    wrong = json.loads(subprocess.check_output([binary, "--control", str(process.pid), "left", "wrong-pane"], text=True))
+    assert wrong["outcome"] == "unavailable", wrong
     command("vsplit")
     left = navigate("left")
     assert left["outcome"] == "moved" and left["before"] != left["after"]
@@ -157,7 +161,7 @@ try:
     assert navigate("left")["outcome"] == "moved"
     keys("X")
     keys("\x1b")
-    keys("\x13")
+    command("write")
     assert "X" in source.read_text(), source.read_text()
     log = (workspace / "editor.log").read_text()
     assert "ERROR" not in log, log

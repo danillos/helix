@@ -3950,21 +3950,19 @@ pub const TYPABLE_COMMAND_LIST: &[TypableCommand] = &[
         completer: SHELL_COMPLETER,
         signature: SHELL_SIGNATURE,
     },
-    #[cfg(unix)]
     TypableCommand {
-        name: "rex-tool",
+        name: "run-program",
         aliases: &[],
-        doc: "Open a tool through the Rex helpers with structured arguments.",
-        fun: crate::rex::launch_tool,
+        doc: "Run a program asynchronously with structured arguments. Use -- before the program.",
+        fun: super::external::run_program,
         completer: CommandCompleter::none(),
         signature: Signature { positionals: (1, None), ..Signature::DEFAULT },
     },
-    #[cfg(unix)]
     TypableCommand {
-        name: "rex-pipe",
+        name: "pipe-program",
         aliases: &[],
-        doc: "Transform one selection through a helper, preserving newer editor changes.",
-        fun: crate::rex::transform_selection,
+        doc: "Pipe one selection to a program, discarding the result if its editor context changes.",
+        fun: super::external::pipe_program,
         completer: CommandCompleter::none(),
         signature: Signature { positionals: (1, None), flags: &[Flag { name: "clipboard", doc: "Copy the accepted replacement to the clipboard", ..Flag::DEFAULT }], ..Signature::DEFAULT },
     },
