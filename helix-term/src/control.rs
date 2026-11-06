@@ -91,8 +91,8 @@ impl SplitDirection {
 struct Hello {
     protocol: u32,
     instance: String,
-    session: String,
-    block: String,
+    pid: u32,
+    context: String,
     #[serde(default)]
     buffer_navigation: bool,
     #[serde(default)]
@@ -205,7 +205,7 @@ impl Drop for Bridge {
 
 fn socket_path(pid: u32) -> PathBuf {
     helix_loader::cache_dir()
-        .join("rex")
+        .join("control")
         .join(format!("{pid}.sock"))
 }
 
@@ -245,8 +245,7 @@ fn remove_stale_endpoints(directory: &Path) -> Result<()> {
 }
 
 pub fn start() -> Result<Option<Bridge>> {
-    let (Ok(session), Ok(block)) = (std::env::var("REX_SESSION"), std::env::var("REX_BLOCK"))
-    else {
+    let Ok(context) = std::env::var("HELIX_CONTROL_CONTEXT") else {
         return Ok(None);
     };
     let path = socket_path(std::process::id());
@@ -254,7 +253,7 @@ pub fn start() -> Result<Option<Bridge>> {
     fs::create_dir_all(directory)?;
     let metadata = fs::symlink_metadata(directory)?;
     if !metadata.is_dir() || metadata.uid() != unsafe { libc::geteuid() } {
-        bail!("Rex integration directory must belong to the current user");
+        bail!("Editor control directory must belong to the current user");
     }
     fs::set_permissions(directory, fs::Permissions::from_mode(0o700))?;
     if path.exists() {
@@ -266,8 +265,8 @@ pub fn start() -> Result<Option<Bridge>> {
     let hello = Hello {
         protocol: PROTOCOL,
         instance: format!("{}-{}", std::process::id(), unix_ms()),
-        session,
-        block,
+        pid: std::process::id(),
+        context,
         buffer_navigation: true,
         split_creation: true,
     };
@@ -278,7 +277,7 @@ pub fn start() -> Result<Option<Bridge>> {
             let requests = requests.clone();
             tokio::spawn(async move {
                 if let Err(error) = serve(stream, hello, requests).await {
-                    log::debug!("Rex navigation request: {error:#}");
+                    log::debug!("Editor control request: {error:#}");
                 }
             });
         }
@@ -394,10 +393,10 @@ fn apply_action(editor: &mut Editor, compositor: &mut Compositor, action: Action
     let Some(view) = compositor.find::<EditorView>() else {
         return Response::new(Outcome::Blocked);
     };
-    if !view.rex_terminal_focused() {
+    if !view.terminal_focused() {
         return Response::new(Outcome::Stale);
     }
-    if overlay || view.rex_input_pending() || editor.count.is_some() {
+    if overlay || view.input_pending() || editor.count.is_some() {
         return Response::new(Outcome::Blocked);
     }
     if let Action::Split(direction) = action {
@@ -448,17 +447,17 @@ fn apply_action(editor: &mut Editor, compositor: &mut Compositor, action: Action
     }
 }
 
-async fn connect(pid: u32, session: &str, block: &str) -> Result<(UnixStream, Hello)> {
+async fn connect(pid: u32, context: &str) -> Result<(UnixStream, Hello)> {
     let mut stream = timeout(IO_TIMEOUT, UnixStream::connect(socket_path(pid))).await??;
     let hello: Hello = read_json(&mut stream).await?;
-    if hello.protocol != PROTOCOL || hello.session != session || hello.block != block {
+    if hello.protocol != PROTOCOL || hello.context != context || hello.pid != pid {
         bail!("Helix integration capability does not match the originating pane");
     }
     Ok((stream, hello))
 }
 
-async fn request(pid: u32, session: &str, block: &str, action: Action) -> Response {
-    let Ok((mut stream, hello)) = connect(pid, session, block).await else {
+async fn request(pid: u32, context: &str, action: Action) -> Response {
+    let Ok((mut stream, hello)) = connect(pid, context).await else {
         return Response::new(Outcome::Unavailable);
     };
     let id = format!("{}-{}", std::process::id(), unix_ms());
@@ -496,7 +495,7 @@ async fn request(pid: u32, session: &str, block: &str, action: Action) -> Respon
     }
     // A lost reply can follow a completed move. Resolve this same ID;
     // a timeout alone never authorizes a second, outer-pane move.
-    if let Ok((mut stream, current)) = connect(pid, session, block).await {
+    if let Ok((mut stream, current)) = connect(pid, context).await {
         if current.instance == hello.instance {
             let cancel = Request::Cancel {
                 instance: hello.instance,
@@ -525,8 +524,31 @@ pub async fn cli(args: &[String]) -> Result<i32> {
         println!("{}", serde_json::json!({ "split_creation": true }));
         return Ok(0);
     }
-    if args.len() != 4 {
-        bail!("--rex-navigate requires PID DIRECTION SESSION BLOCK");
+    if matches!(args, [operation, _] if operation == "locate") {
+        let directory = socket_path(std::process::id());
+        let mut endpoints = Vec::new();
+        if let Ok(entries) = fs::read_dir(directory.parent().unwrap()) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()) != Some("sock") {
+                    continue;
+                }
+                if let Some(pid) = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .and_then(|s| s.parse().ok())
+                {
+                    if let Ok((_, hello)) = connect(pid, &args[1]).await {
+                        endpoints.push(hello);
+                    }
+                }
+            }
+        }
+        println!("{}", serde_json::to_string(&endpoints)?);
+        return Ok(0);
+    }
+    if args.len() != 3 {
+        bail!("--control requires probe, locate CONTEXT, or PID OPERATION CONTEXT");
     }
     let pid = args[0].parse().context("Invalid Helix process ID")?;
     let action = if let Some(index) = args[1].strip_prefix("buffer:") {
@@ -542,162 +564,9 @@ pub async fn cli(args: &[String]) -> Result<i32> {
                 .context("Invalid navigation direction")?,
         )
     };
-    let response = request(pid, &args[2], &args[3], action).await;
+    let response = request(pid, &args[2], action).await;
     println!("{}", serde_json::to_string(&response)?);
     Ok(0)
-}
-
-fn helper_command(arguments: Vec<String>) -> Result<tokio::process::Command> {
-    let home = std::env::var_os("HOME").context("HOME is required for the Rex helpers")?;
-    let mut command = tokio::process::Command::new(
-        std::env::var_os("HELIX_REX_HELPERS")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(home).join(".dotfiles/support/pipe.rb")),
-    );
-    command
-        .args(arguments)
-        .current_dir(helix_stdx::env::current_working_dir());
-    command.kill_on_drop(true);
-    Ok(command)
-}
-
-pub fn launch_tool(
-    cx: &mut crate::compositor::Context,
-    args: helix_core::command_line::Args,
-    event: crate::ui::PromptEvent,
-) -> Result<()> {
-    if event != crate::ui::PromptEvent::Validate {
-        return Ok(());
-    }
-    let mut command = helper_command(args.iter().map(|arg| arg.to_string()).collect())?;
-    command.stdin(std::process::Stdio::null());
-    cx.jobs.callback(async move {
-        let output = command.output().await?;
-        if !output.status.success() {
-            bail!(
-                "Rex tool: {}",
-                String::from_utf8_lossy(&output.stderr).trim()
-            );
-        }
-        Ok(job::Callback::Editor(Box::new(|editor| {
-            editor.set_status("Rex tool opened")
-        })))
-    });
-    Ok(())
-}
-
-#[derive(Clone)]
-struct EditContext {
-    view: helix_view::ViewId,
-    document: helix_view::DocumentId,
-    version: i32,
-    mode: helix_view::document::Mode,
-    selection: helix_core::Selection,
-}
-
-impl EditContext {
-    fn capture(editor: &Editor) -> Self {
-        let view = editor.tree.get(editor.tree.focus);
-        let doc = editor.document(view.doc).unwrap();
-        Self {
-            view: view.id,
-            document: doc.id(),
-            version: doc.version(),
-            mode: editor.mode,
-            selection: doc.selection(view.id).clone(),
-        }
-    }
-
-    fn matches(&self, editor: &Editor, compositor: &mut Compositor) -> bool {
-        let Some(view) = editor.tree.try_get(self.view) else {
-            return false;
-        };
-        let Some(doc) = editor.document(self.document) else {
-            return false;
-        };
-        let unobstructed = compositor.layer_count() == 1
-            && compositor
-                .find::<EditorView>()
-                .is_some_and(|view| view.rex_terminal_focused() && !view.rex_input_pending());
-        unobstructed
-            && editor.mode == self.mode
-            && editor.count.is_none()
-            && editor.tree.focus == self.view
-            && view.doc == self.document
-            && doc.version() == self.version
-            && doc.selection(self.view) == &self.selection
-    }
-}
-
-pub fn transform_selection(
-    cx: &mut crate::compositor::Context,
-    args: helix_core::command_line::Args,
-    event: crate::ui::PromptEvent,
-) -> Result<()> {
-    use tokio::io::AsyncWriteExt;
-    if event != crate::ui::PromptEvent::Validate {
-        return Ok(());
-    }
-    let copy_to_clipboard = args.has_flag("clipboard");
-    let context = EditContext::capture(cx.editor);
-    if context.selection.len() != 1 {
-        bail!("Select one function or output region for this helper");
-    }
-    let doc = cx.editor.document(context.document).unwrap();
-    let input = context
-        .selection
-        .primary()
-        .slice(doc.text().slice(..))
-        .to_string();
-    let mut command = helper_command(args.iter().map(|arg| arg.to_string()).collect())?;
-    command
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    cx.jobs.callback(async move {
-        let mut child = command.spawn()?;
-        let mut stdin = child.stdin.take().unwrap();
-        let writer = tokio::spawn(async move { stdin.write_all(input.as_bytes()).await });
-        let output = child.wait_with_output().await?;
-        writer.await??;
-        if !output.status.success() {
-            bail!(
-                "Helix helper: {}",
-                String::from_utf8_lossy(&output.stderr).trim()
-            );
-        }
-        let output = String::from_utf8(output.stdout)?;
-        Ok(job::Callback::EditorCompositor(Box::new(
-            move |editor, compositor| {
-                if !context.matches(editor, compositor) {
-                    editor.set_error("Helper result discarded because its editor context changed");
-                    return;
-                }
-                if copy_to_clipboard {
-                    if let Err(error) = editor.registers.write('+', vec![output.clone()]) {
-                        editor.set_error(error.to_string());
-                        return;
-                    }
-                }
-                let scrolloff = editor.config().scrolloff;
-                let (view, doc) = helix_view::current!(editor);
-                let range = context.selection.primary();
-                let selection = helix_core::Selection::single(
-                    range.from(),
-                    range.from() + output.chars().count(),
-                );
-                let transaction = helix_core::Transaction::change(
-                    doc.text(),
-                    [(range.from(), range.to(), Some(output.into()))].into_iter(),
-                )
-                .with_selection(selection);
-                doc.apply(&transaction, view.id);
-                doc.append_changes_to_history(view);
-                view.ensure_cursor_in_view(doc, scrolloff);
-            },
-        )))
-    });
-    Ok(())
 }
 
 #[cfg(test)]
@@ -708,8 +577,8 @@ mod tests {
     #[test]
     fn an_older_bridge_does_not_advertise_split_creation() {
         let hello: Hello = serde_json::from_value(serde_json::json!({
-            "protocol": 1, "instance": "older", "session": "session:test",
-            "block": "block:test", "buffer_navigation": true
+            "protocol": 1, "instance": "older", "pid": 123,
+            "context": "opaque-test", "buffer_navigation": true
         }))
         .unwrap();
         assert!(hello.buffer_navigation);

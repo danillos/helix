@@ -1,4 +1,5 @@
 pub(crate) mod dap;
+pub(crate) mod external;
 pub(crate) mod lsp;
 pub(crate) mod syntax;
 pub(crate) mod typed;

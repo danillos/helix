@@ -9,7 +9,7 @@ pub struct Args {
     pub display_help: bool,
     pub display_version: bool,
     pub health: bool,
-    pub rex_navigation: Option<Vec<String>>,
+    pub control: Option<Vec<String>>,
     pub health_arg: Option<String>,
     pub load_tutor: bool,
     pub fetch_grammars: bool,
@@ -46,8 +46,8 @@ impl Args {
 
         while let Some(arg) = argv.next() {
             match arg.as_str() {
-                "--rex-navigate" => {
-                    args.rex_navigation = Some(argv.collect());
+                "--control" => {
+                    args.control = Some(argv.collect());
                     return Ok(args);
                 }
                 "--" => break, // stop parsing at this point treat the remaining as files

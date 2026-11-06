@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Verify native editor splits through the Rex bridge in a private terminal."""
+"""Verify native editor splits through the editor control endpoint in a private terminal."""
 import argparse, fcntl, json, os, pty, select, socket, struct, subprocess, tempfile, termios, threading, time
 from pathlib import Path
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary',required=True,type=Path)
 binary=str(parser.parse_args().binary.resolve())
-assert json.loads(subprocess.check_output([binary,'--rex-navigate','probe-split'],text=True))=={'split_creation':True}
-workspace=Path(tempfile.mkdtemp(prefix='helix-rex-splits-'))
+assert json.loads(subprocess.check_output([binary,'--control','probe-split'],text=True))=={'split_creation':True}
+workspace=Path(tempfile.mkdtemp(prefix='helix-control-splits-'))
 source=workspace/'split.txt';original='original text\n';source.write_text(original)
 config=workspace/'config.toml';config.write_text('')
 master,slave=pty.openpty();fcntl.ioctl(slave,termios.TIOCSWINSZ,struct.pack('HHHH',36,140,0,0))
-env=os.environ.copy();env.update(TERM='xterm-256color',REX_SESSION='session:split-test',REX_BLOCK='block:split-test')
+env=os.environ.copy();env.update(TERM='xterm-256color',HELIX_CONTROL_CONTEXT='session:split-test')
 process=subprocess.Popen([binary,'--config',str(config),str(source),'--log',str(workspace/'editor.log')],cwd=workspace,env=env,stdin=slave,stdout=slave,stderr=slave,start_new_session=True)
 os.close(slave);transcript=bytearray()
 def drain():
@@ -23,8 +23,8 @@ reader=threading.Thread(target=drain,daemon=True);reader.start()
 def keys(value):os.write(master,value.encode());time.sleep(.12)
 def command(value):keys(':'+value+'\r')
 def request(value):
- return json.loads(subprocess.check_output([binary,'--rex-navigate',str(process.pid),value,env['REX_SESSION'],env['REX_BLOCK']],text=True,timeout=3))
-endpoint=Path(env.get('XDG_CACHE_HOME',str(Path.home()/'.cache')))/'helix/rex'/f'{process.pid}.sock'
+ return json.loads(subprocess.check_output([binary,'--control',str(process.pid),value,env['HELIX_CONTROL_CONTEXT']],text=True,timeout=3))
+endpoint=Path(env.get('XDG_CACHE_HOME',str(Path.home()/'.cache')))/'helix/control'/f'{process.pid}.sock'
 def raw_split(identity,deadline):
  with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as stream:
   stream.settimeout(2);stream.connect(str(endpoint));reader=stream.makefile('rb')
